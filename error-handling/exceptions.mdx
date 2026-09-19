@@ -1,0 +1,105 @@
+---
+title: "Runtime Exceptions in the Bank Management System"
+sidebarTitle: "Exceptions"
+description: "The system throws three custom RuntimeExceptions: AccountNotFoundException, InsufficientFundsException, and ValidationException. Learn when each is thrown and how to handle them."
+---
+
+The Bank Management System enforces its error strategy through three custom unchecked exceptions, all of which extend `RuntimeException`. Because they are unchecked, callers are not required to declare or catch them — but violations of pre-conditions in `BankServiceImpl` will always surface as one of these three types. Each exception is thrown at the exact point where a precondition is violated, carrying a descriptive message that identifies what went wrong.
+
+## Exception Summary
+
+| Exception | Thrown when | Message example |
+|---|---|---|
+| `AccountNotFoundException` | Account number not found in the repository | `"Account not found: AC000099"` |
+| `InsufficientFundsException` | A `withdraw` or `transfer` amount exceeds the current balance | `"Insufficient Balance"` |
+| `ValidationException` | Name is blank, email missing `@`, invalid account type, or negative amount | `"Name is required."`, `"Please enter correct email"`, `"Type must be SAVINGS or CURRENT"`, `"Please enter a valid amount"` |
+
+---
+
+## AccountNotFoundException
+
+`AccountNotFoundException` is thrown whenever a requested account number cannot be resolved in the in-memory repository. It is raised inside `deposit()`, `withdraw()`, `transfer()`, and `getStatement()` via an `orElseThrow` call on the `Optional` returned by `accountRepository.findByNumber()`. In `transfer()`, the check is applied twice — once for the source account and once for the destination account — so either an unknown sender or an unknown recipient will trigger this exception.
+
+```java AccountNotFoundException.java
+package exceptions;
+
+public class AccountNotFoundException extends RuntimeException{
+    public AccountNotFoundException(String message) {
+        super(message);
+    }
+}
+```
+
+**Thrown by:** `deposit()`, `withdraw()`, `transfer()` (for both `fromAcc` and `toAcc`), and `getStatement()` (indirectly, via repository lookup).
+
+**Message pattern:** `"Account not found: <accountNumber>"` — the account number that was not found is interpolated into the message at the throw site.
+
+---
+
+## InsufficientFundsException
+
+`InsufficientFundsException` is thrown when a debit operation would reduce an account's balance below zero. In `withdraw()`, the check compares `account.getBalance()` against the requested `amount` using `Double.compareTo`. In `transfer()`, the same comparison is applied to the source account's balance before any funds are moved. The destination account is never checked — only the sender's balance matters.
+
+```java InsufficientFundsException.java
+package exceptions;
+
+public class InsufficientFundsException extends RuntimeException{
+    public InsufficientFundsException(String message) {
+        super(message);
+    }
+}
+```
+
+**Thrown by:** `withdraw()` when `account.getBalance().compareTo(amount) < 0`; `transfer()` when `from.getBalance().compareTo(amount) < 0`.
+
+**Message:** `"Insufficient Balance"` (fixed string, set at the throw site in `BankServiceImpl`).
+
+---
+
+## ValidationException
+
+`ValidationException` is thrown by four `Validation<T>` lambda validators defined as instance fields in `BankServiceImpl`, and also directly inside `transfer()` when the source and destination account numbers are identical. The validators run at the very top of each service method, before any repository access, so invalid input is rejected without touching any stored data.
+
+```java ValidationException.java
+package exceptions;
+
+public class ValidationException extends RuntimeException{
+    public ValidationException(String message) {
+        super(message);
+    }
+}
+```
+
+**Thrown by:**
+- `validateName` — called in `openAccount()` when name is `null` or blank
+- `validateEmail` — called in `openAccount()` when email is `null` or does not contain `@`
+- `validateType` — called in `openAccount()` when account type is not `SAVINGS` or `CURRENT`
+- `validateAmountPositive` — called in `deposit()`, `withdraw()`, and `transfer()` when amount is `null` or negative
+- `transfer()` directly — when `fromAcc.equals(toAcc)`, with message `"Cannot transfer to your own account."`
+
+---
+
+## Handling Exceptions
+
+When calling `BankServiceImpl` methods from application code, wrap the calls in a `try-catch` block to intercept each exception type independently:
+
+```java
+BankService bankService = new BankServiceImpl();
+try {
+    bankService.withdraw("AC000001", 9999.0, "Large withdrawal");
+} catch (AccountNotFoundException e) {
+    System.err.println("Account not found: " + e.getMessage());
+} catch (InsufficientFundsException e) {
+    System.err.println("Not enough funds: " + e.getMessage());
+} catch (ValidationException e) {
+    System.err.println("Invalid input: " + e.getMessage());
+}
+```
+
+<Note>
+  The console UI (`Main.java`) does not catch these exceptions — they will propagate and terminate the running session if triggered. In a production implementation, you would wrap service calls in try-catch blocks at every entry point that accepts user input.
+</Note>
+
+<Tip>
+  All three exceptions carry a descriptive message set at throw time. Always log or display `e.getMessage()` for user-facing error reporting — the message string is the primary diagnostic signal in this system.
+</Tip>

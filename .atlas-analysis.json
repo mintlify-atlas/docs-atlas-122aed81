@@ -1,0 +1,89 @@
+{
+  "projectType": "general",
+  "projectName": "Bank Management System",
+  "projectDescription": "A Java console application for managing bank accounts, supporting account creation, deposits, withdrawals, transfers, and transaction history using an in-memory repository pattern.",
+  "theme": "luma",
+  "primaryColor": "#1A56DB",
+  "lightColor": "#EFF6FF",
+  "darkColor": "#1E3A5F",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/domain-model",
+              "architecture/repositories"
+            ]
+          },
+          {
+            "group": "Usage Guide",
+            "pages": [
+              "guides/open-account",
+              "guides/deposits-withdrawals",
+              "guides/transfers",
+              "guides/account-statement",
+              "guides/search-accounts"
+            ]
+          },
+          {
+            "group": "Error Handling",
+            "pages": [
+              "error-handling/exceptions",
+              "error-handling/validation"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Service Interface",
+            "pages": [
+              "api/bank-service",
+              "api/domain-classes",
+              "api/repositories"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Open SAVINGS or CURRENT bank accounts with automatic account number generation",
+    "Deposit funds into any account with optional transaction notes",
+    "Withdraw funds with insufficient-balance protection",
+    "Transfer funds between two accounts with dual transaction recording",
+    "Retrieve a chronological account statement for any account",
+    "List all accounts sorted by account number",
+    "Search accounts by partial customer name",
+    "In-memory repository layer backed by HashMap for fast lookups",
+    "Functional Validation<T> interface for composable input validation",
+    "Custom runtime exceptions: AccountNotFoundException, InsufficientFundsException, ValidationException"
+  ],
+  "publicApiSurface": [
+    "BankService.openAccount(String name, String email, String accountType): String",
+    "BankService.listAccounts(): List<Account>",
+    "BankService.deposit(String accountNumber, Double amount, String note): void",
+    "BankService.withdraw(String accountNumber, Double amount, String note): void",
+    "BankService.transfer(String from, String to, Double amount, String note): void",
+    "BankService.getStatement(String account): List<Transaction>",
+    "BankService.searchAccountsByCustomerName(String q): List<Account>",
+    "AccountRepository.save(Account), findAll(), findByNumber(String), findByCustomerId(String)",
+    "CustomerRepository.save(Customer), findAll()",
+    "TransactionRepository.add(Transaction), findByAccount(String)",
+    "Type enum: DEPOSIT, WITHDRAW, TRANSFER_IN, TRANSFER_OUT",
+    "Validation<T> functional interface: validate(T value)"
+  ]
+}

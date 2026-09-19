@@ -1,0 +1,94 @@
+---
+title: "Input Validation with the Functional Validation Interface"
+sidebarTitle: "Validation"
+description: "The Validation<T> functional interface enables composable, lambda-based input validators in BankServiceImpl. Each validator checks one condition and throws ValidationException on failure."
+---
+
+The `Validation<T>` interface is a `@FunctionalInterface` with a single abstract method, `validate(T value)`, that throws `ValidationException` when the supplied value does not satisfy an expected condition. Because it is a functional interface, any conforming lambda expression can be assigned to a `Validation<T>` variable — no concrete class is required. `BankServiceImpl` uses this pattern to define four focused, single-responsibility validators as private instance fields, keeping input-checking logic inline and easy to read.
+
+## The Validation Interface
+
+```java Validation.java
+package util;
+
+import exceptions.ValidationException;
+
+@FunctionalInterface
+public interface Validation<T> {
+    void validate(T value) throws ValidationException;
+}
+```
+
+The interface is intentionally minimal: it carries no default methods and imposes no state. The sole contract is that `validate` either completes normally (input is acceptable) or throws `ValidationException` (input is not). This design means validators can be passed, stored, and called uniformly regardless of the type `T` they inspect.
+
+---
+
+## Validators in BankServiceImpl
+
+`BankServiceImpl` declares four validators as `private final` instance fields using lambda expressions. Each validator is scoped to a single check and throws a fixed, user-readable message on failure.
+
+```java
+private final Validation<String> validateName = name -> {
+    if (name == null || name.isBlank()) throw new ValidationException("Name is required.");
+};
+
+private final Validation<String> validateEmail = email -> {
+    if (email == null || !email.contains("@")) throw new ValidationException("Please enter correct email");
+};
+
+private final Validation<String> validateType = type -> {
+    if (type == null || !(type.equalsIgnoreCase("SAVINGS") || !type.equalsIgnoreCase("WITHDRAW")))
+        throw new ValidationException("Type must be SAVINGS or CURRENT");
+};
+
+private final Validation<Double> validateAmountPositive = amount -> {
+    if (amount == null || amount < 0)
+        throw new ValidationException("Please enter a valid amount");
+};
+```
+
+**How each validator is used:**
+
+- **`validateName`** — called at the start of `openAccount()`. Rejects a name that is `null` or consists entirely of whitespace.
+- **`validateEmail`** — called at the start of `openAccount()`. Rejects an email that is `null` or does not contain the `@` character.
+- **`validateType`** — called at the start of `openAccount()`. Rejects an account type that is not `"SAVINGS"` or `"CURRENT"` (comparison is case-insensitive).
+- **`validateAmountPositive`** — called at the start of `deposit()`, `withdraw()`, and `transfer()`. Rejects a `null` amount or any value below zero.
+
+All four validators execute before any repository access, ensuring that malformed input never reaches the data layer.
+
+---
+
+## Writing Custom Validators
+
+Because `Validation<T>` is a `@FunctionalInterface`, you can implement additional validators using the same lambda pattern without modifying any existing class:
+
+```java
+Validation<String> validatePhone = phone -> {
+    if (phone == null || !phone.matches("\\d{10}"))
+        throw new ValidationException("Phone must be 10 digits.");
+};
+// Usage:
+validatePhone.validate("5551234567"); // passes
+validatePhone.validate("abc");         // throws ValidationException
+```
+
+The lambda must accept a single parameter of type `T` and either return normally or throw `ValidationException` — that is the complete contract.
+
+---
+
+## Validation Summary
+
+| Validator | Input type | Passing condition | Exception message |
+|---|---|---|---|
+| `validateName` | `String` | `name != null && !name.isBlank()` | `"Name is required."` |
+| `validateEmail` | `String` | `email != null && email.contains("@")` | `"Please enter correct email"` |
+| `validateType` | `String` | `SAVINGS` or `CURRENT` (case-insensitive) | `"Type must be SAVINGS or CURRENT"` |
+| `validateAmountPositive` | `Double` | `amount != null && amount >= 0` | `"Please enter a valid amount"` |
+
+<Tip>
+  Because `Validation<T>` is a `@FunctionalInterface`, you can assign any lambda that accepts a `T` and throws `ValidationException`. This makes it straightforward to introduce new validators — such as phone number format, minimum deposit amount, or password strength — without modifying any existing class.
+</Tip>
+
+<Note>
+  Validators are called at the top of each `BankServiceImpl` method before any repository access, so invalid input is rejected before any data is read or written. This means a failed validation will never leave the repository in a partially-modified state.
+</Note>

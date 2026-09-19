@@ -1,0 +1,79 @@
+---
+title: "Bank Management System: Java Console Banking App"
+sidebarTitle: "Introduction"
+description: "Bank Management System is a Java console app for core banking operations. It uses a layered architecture with a service interface, in-memory repositories, and custom exceptions."
+---
+
+Bank Management System is a Java console application that demonstrates how to build a working banking back-end without any external database or framework. Running entirely in-memory, it lets you open accounts, move money, and inspect transaction histories through a simple numbered menu. The project is aimed at Java learners and interviewers who want to see clean separation of concerns — a service interface, concrete implementation, repository layer, domain model, and typed exception hierarchy — all wired together in plain Java.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Open Account" icon="user-plus" href="/guides/open-account">
+    Create SAVINGS or CURRENT accounts for new customers. Each account receives an auto-generated number in the format AC000001, AC000002, and so on.
+  </Card>
+  <Card title="Deposits & Withdrawals" icon="money-bill-transfer" href="/guides/deposits-withdrawals">
+    Credit or debit any account by amount with an attached note. Every operation is recorded as a typed transaction.
+  </Card>
+  <Card title="Transfers" icon="arrows-left-right" href="/guides/transfers">
+    Move funds atomically between two accounts. The service validates that source and destination differ and that the balance is sufficient before making any changes.
+  </Card>
+  <Card title="Account Statement" icon="receipt" href="/guides/account-statement">
+    Retrieve a chronologically sorted list of all transactions for an account, printing timestamp, type, amount, and note for each entry.
+  </Card>
+  <Card title="Search by Customer Name" icon="magnifying-glass" href="/guides/search-accounts">
+    Find accounts using a partial, case-insensitive match against the customer name. Results are returned sorted by account number.
+  </Card>
+  <Card title="In-Memory Repositories" icon="database" href="/architecture/repositories">
+    AccountRepository, CustomerRepository, and TransactionRepository each back their collections with HashMaps — no database configuration required.
+  </Card>
+  <Card title="Input Validation" icon="shield-check" href="/error-handling/validation">
+    A functional `Validation<T>` interface enables composable validators for names, email addresses, account types, and amounts, throwing `ValidationException` on failure.
+  </Card>
+  <Card title="Custom Exceptions" icon="triangle-exclamation" href="/error-handling/exceptions">
+    Domain-specific `RuntimeException` subclasses — `AccountNotFoundException`, `InsufficientFundsException`, and `ValidationException` — keep error handling expressive and type-safe.
+  </Card>
+</CardGroup>
+
+## Project Structure
+
+The source tree is organised into focused packages so that each layer has a single responsibility:
+
+```
+src/
+├── app/
+│   └── Main.java          # Console entry point and menu loop
+├── domain/
+│   ├── Account.java       # Account entity
+│   ├── Customer.java      # Customer entity
+│   ├── Transaction.java   # Transaction entity
+│   └── Type.java          # Transaction type enum
+├── service/
+│   ├── BankService.java   # Service interface
+│   └── impl/
+│       └── BankServiceImpl.java  # In-memory implementation
+├── repository/
+│   ├── AccountRepository.java
+│   ├── CustomerRepository.java
+│   └── TransactionRepository.java
+├── exceptions/
+│   ├── AccountNotFoundException.java
+│   ├── InsufficientFundsException.java
+│   └── ValidationException.java
+└── util/
+    └── Validation.java    # Functional validation interface
+```
+
+## Design Principles
+
+The codebase follows several deliberate design choices that are worth understanding before diving into the guides:
+
+- **Interface-driven service layer** — `BankService` defines every public banking operation. `Main.java` holds only a `BankService` reference, never a concrete class, making it easy to swap implementations.
+- **In-memory HashMap-backed repositories** — `AccountRepository`, `CustomerRepository`, and `TransactionRepository` store entities in `HashMap` collections. No database driver, schema, or connection string is needed to run the project.
+- **Functional `Validation<T>` interface** — A single-method interface in `util.Validation` acts as a validator strategy. `BankServiceImpl` composes several validators (name, email, type, amount) and calls `validate()` before performing any mutation.
+- **Custom `RuntimeException` subclasses** — Domain errors surface as `AccountNotFoundException`, `InsufficientFundsException`, and `ValidationException`, each extending `RuntimeException` so callers are not forced into checked-exception handling.
+- **Auto-generated account numbers** — Account numbers follow the pattern `AC000001`, `AC000002`, etc. The number is derived from the current repository size plus one, formatted with `String.format("AC%06d", size)`.
+
+<Note>
+  All data is stored in-memory for the lifetime of a single JVM process. Restarting the application resets all accounts, customers, and transaction history to a clean state.
+</Note>

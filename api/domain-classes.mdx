@@ -1,0 +1,178 @@
+---
+title: "Domain Classes: Account, Customer, Transaction, and Type"
+sidebarTitle: "Domain Classes"
+description: "Reference for the four domain classes used throughout the Bank Management System: Account, Customer, Transaction, and the Type enum with its four transaction type values."
+---
+
+The domain layer consists of four plain Java objects (POJOs) with no framework dependencies. They carry no business logic and impose no persistence requirements — they are pure data containers whose instances flow between the service layer and the repository layer. `Account` and `Customer` represent the entities created when a new account is opened; `Transaction` captures every financial event; and the `Type` enum classifies what kind of event each transaction represents.
+
+---
+
+## Account
+
+**Package:** `domain.Account`
+
+An `Account` binds a generated account number and an account type to a customer identifier and a mutable balance. One `Account` is created per call to `BankService.openAccount()`, and its `balance` field is updated in-place by the service layer on every deposit, withdrawal, or transfer.
+
+```java
+public Account(String accountNumber, String accountType, Double balance, String customerId)
+```
+
+<ResponseField name="accountNumber" type="String">
+  Auto-generated unique identifier for this account. Formatted as `AC` followed by a zero-padded six-digit sequence (e.g., `"AC000001"`). Used as the primary key in `AccountRepository`.
+</ResponseField>
+
+<ResponseField name="customerId" type="String">
+  UUID string referencing the `Customer` record that owns this account. Set at construction and matches the `id` field of the associated `Customer`.
+</ResponseField>
+
+<ResponseField name="balance" type="Double">
+  Current monetary balance of the account. Initialized to `0.0` at account creation. Mutated directly by the service layer via `setBalance()` on every financial operation.
+</ResponseField>
+
+<ResponseField name="accountType" type="String">
+  The type of account. Either `"SAVINGS"` or `"CURRENT"` (as supplied to `openAccount()`). Stored as-is without normalization.
+</ResponseField>
+
+All fields have corresponding public getters (`getAccountNumber()`, `getCustomerId()`, `getBalance()`, `getAccountType()`) and setters (`setAccountNumber()`, `setCustomerId()`, `setBalance()`, `setAccountType()`).
+
+```java
+// Creating and inspecting an Account
+Account account = new Account("AC000001", "SAVINGS", 0.0, "550e8400-e29b-41d4-a716-446655440000");
+
+System.out.println(account.getAccountNumber()); // AC000001
+System.out.println(account.getAccountType());   // SAVINGS
+System.out.println(account.getBalance());       // 0.0
+
+account.setBalance(account.getBalance() + 250.0);
+System.out.println(account.getBalance());       // 250.0
+```
+
+---
+
+## Customer
+
+**Package:** `domain.Customer`
+
+A `Customer` holds the personal details of the account holder. One `Customer` record is created alongside each `Account` during `openAccount()`. The customer's UUID-based id is used by `AccountRepository.findByCustomerId()` to look up all accounts belonging to that person.
+
+```java
+public Customer(String id, String name, String email)
+```
+
+<ResponseField name="id" type="String">
+  UUID string generated via `UUID.randomUUID().toString()` at the time `openAccount()` is called. Acts as the primary key in `CustomerRepository` and is stored as `customerId` on the linked `Account`.
+</ResponseField>
+
+<ResponseField name="name" type="String">
+  The customer's full name as supplied to `openAccount()`. Used for the `searchAccountsByCustomerName()` partial-match search.
+</ResponseField>
+
+<ResponseField name="email" type="String">
+  The customer's email address. Validated to contain the `@` character before the record is persisted.
+</ResponseField>
+
+All fields have corresponding public getters (`getId()`, `getName()`, `getEmail()`) and setters (`setId()`, `setName()`, `setEmail()`).
+
+```java
+// Creating and reading a Customer
+String customerId = UUID.randomUUID().toString();
+Customer customer = new Customer(customerId, "Alice Smith", "alice@example.com");
+
+System.out.println(customer.getId());    // e.g. 550e8400-e29b-41d4-a716-446655440000
+System.out.println(customer.getName());  // Alice Smith
+System.out.println(customer.getEmail()); // alice@example.com
+```
+
+---
+
+## Transaction
+
+**Package:** `domain.Transaction`
+
+A `Transaction` is an immutable record of a single financial event — deposit, withdrawal, or one leg of a transfer. Transactions are created exclusively by `BankServiceImpl` and are never modified after creation. Note that the constructor parameter order differs from the field declaration order in the class.
+
+```java
+public Transaction(String accountNumber, Double amount, String id, String note,
+                   LocalDateTime timestamp, Type type)
+```
+
+<ResponseField name="id" type="String">
+  UUID string generated at transaction creation time via `UUID.randomUUID().toString()`. Uniquely identifies this transaction.
+</ResponseField>
+
+<ResponseField name="type" type="Type">
+  Classifies the financial event. One of `DEPOSIT`, `WITHDRAW`, `TRANSFER_IN`, or `TRANSFER_OUT`. See the [Type enum](#type) section below for details.
+</ResponseField>
+
+<ResponseField name="accountNumber" type="String">
+  The account number this transaction is recorded against. Matches the `accountNumber` field on the `Account` that was affected.
+</ResponseField>
+
+<ResponseField name="amount" type="Double">
+  The monetary value of the operation. Always `>= 0` by the time a transaction is created (validated upstream).
+</ResponseField>
+
+<ResponseField name="timestamp" type="LocalDateTime">
+  The `LocalDateTime.now()` captured at the moment the transaction was created inside the service method.
+</ResponseField>
+
+<ResponseField name="note" type="String">
+  The description string passed by the caller to `deposit()`, `withdraw()`, or `transfer()`. Stored verbatim; may be any non-null string.
+</ResponseField>
+
+All fields have corresponding public getters and setters.
+
+```java
+// Creating and reading a Transaction
+Transaction tx = new Transaction(
+    "AC000001",
+    500.0,
+    UUID.randomUUID().toString(),
+    "Payroll",
+    LocalDateTime.now(),
+    Type.DEPOSIT
+);
+
+System.out.println(tx.getType());          // DEPOSIT
+System.out.println(tx.getAmount());        // 500.0
+System.out.println(tx.getNote());          // Payroll
+System.out.println(tx.getAccountNumber()); // AC000001
+```
+
+---
+
+## Type
+
+**Package:** `domain.Type`
+
+`Type` is an enum that classifies every `Transaction` into one of four categories, reflecting the operation that caused it to be created.
+
+```java
+package domain;
+
+public enum Type {
+    DEPOSIT,
+    WITHDRAW,
+    TRANSFER_IN,
+    TRANSFER_OUT
+}
+```
+
+<AccordionGroup>
+  <Accordion title="DEPOSIT">
+    Assigned to transactions created by a successful `BankService.deposit()` call. Indicates that funds were added to the account from an external source. The `amount` field on the transaction is the credited value.
+  </Accordion>
+
+  <Accordion title="WITHDRAW">
+    Assigned to transactions created by a successful `BankService.withdraw()` call. Indicates that funds were removed from the account. The `amount` field is the debited value. Only recorded after the balance check passes.
+  </Accordion>
+
+  <Accordion title="TRANSFER_OUT">
+    Assigned to the transaction recorded on the **source** account during a successful `BankService.transfer()` call. Indicates that funds left this account and were sent to another. Paired with a corresponding `TRANSFER_IN` transaction on the destination account.
+  </Accordion>
+
+  <Accordion title="TRANSFER_IN">
+    Assigned to the transaction recorded on the **destination** account during a successful `BankService.transfer()` call. Indicates that funds arrived from another account. Paired with a corresponding `TRANSFER_OUT` transaction on the source account.
+  </Accordion>
+</AccordionGroup>

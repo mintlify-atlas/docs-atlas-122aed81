@@ -1,0 +1,233 @@
+---
+title: "Repository Classes: AccountRepository, CustomerRepository, TransactionRepository"
+sidebarTitle: "Repositories"
+description: "Reference for the three in-memory repository classes. Each wraps a HashMap and provides typed methods for storing and querying Accounts, Customers, and Transactions."
+---
+
+The repository layer provides a data-access abstraction over plain in-memory `HashMap` stores. Each repository is responsible for exactly one domain type: `AccountRepository` manages `Account` objects, `CustomerRepository` manages `Customer` objects, and `TransactionRepository` manages `Transaction` objects grouped by account number. All three are instantiated directly as `new …()` inside `BankServiceImpl` and live for the duration of the JVM process — data does not survive application restart.
+
+<Note>
+  All three repositories are created as `new AccountRepository()`, `new CustomerRepository()`, and `new TransactionRepository()` directly in `BankServiceImpl`. To swap in a persistent backend, replace those instantiations with implementations that share the same method signatures.
+</Note>
+
+---
+
+## AccountRepository
+
+**Package:** `repository.AccountRepository`
+
+Stores and queries `Account` objects keyed by their account number string.
+
+**Internal storage:**
+
+```java
+private final Map<String, Account> accountsByNumber = new HashMap<>();
+```
+
+### Methods
+
+#### save
+
+```java
+public void save(Account account)
+```
+
+Stores the supplied `Account` in the map under its `accountNumber`. If an account with that number already exists, it is silently replaced.
+
+<ParamField path="account" type="Account" required>
+  The `Account` instance to persist. The map key is taken from `account.getAccountNumber()`.
+</ParamField>
+
+```java
+// Example
+Account account = new Account("AC000001", "SAVINGS", 0.0, customerId);
+accountRepository.save(account);
+```
+
+---
+
+#### findAll
+
+```java
+public List<Account> findAll()
+```
+
+Returns all stored accounts as a new `ArrayList`. The list is a snapshot — modifications to it do not affect the underlying map, and the order of elements is not guaranteed (HashMap iteration order).
+
+<ResponseField name="return" type="List&lt;Account&gt;">
+  A new `ArrayList` containing all `Account` values currently in the map. Returns an empty list if no accounts have been saved.
+</ResponseField>
+
+```java
+// Example
+List<Account> all = accountRepository.findAll();
+System.out.println("Total accounts: " + all.size());
+```
+
+---
+
+#### findByNumber
+
+```java
+public Optional<Account> findByNumber(String accountNumber)
+```
+
+Looks up a single account by its account number. Returns `Optional.empty()` when the number is not found, allowing the caller to handle the missing-account case without a `NullPointerException`.
+
+<ParamField path="accountNumber" type="String" required>
+  The account number to look up (e.g., `"AC000001"`).
+</ParamField>
+
+<ResponseField name="return" type="Optional&lt;Account&gt;">
+  `Optional` containing the matching `Account`, or `Optional.empty()` if no account with that number exists.
+</ResponseField>
+
+```java
+// Example
+Optional<Account> result = accountRepository.findByNumber("AC000001");
+Account account = result.orElseThrow(() -> new AccountNotFoundException("Account not found: AC000001"));
+```
+
+---
+
+#### findByCustomerId
+
+```java
+public List<Account> findByCustomerId(String customerId)
+```
+
+Performs a linear scan over all accounts and collects those whose `customerId` field matches the supplied value. Used by `searchAccountsByCustomerName()` to resolve accounts after filtering customers.
+
+<ParamField path="customerId" type="String" required>
+  The UUID string of the customer whose accounts should be returned.
+</ParamField>
+
+<ResponseField name="return" type="List&lt;Account&gt;">
+  A new `ArrayList` containing all accounts associated with the given customer ID. Returns an empty list if the customer has no accounts or if the ID is not recognized.
+</ResponseField>
+
+```java
+// Example
+List<Account> customerAccounts = accountRepository.findByCustomerId("550e8400-e29b-41d4-a716-446655440000");
+customerAccounts.forEach(a -> System.out.println(a.getAccountNumber()));
+```
+
+---
+
+## CustomerRepository
+
+**Package:** `repository.CustomerRepository`
+
+Stores and queries `Customer` objects keyed by their UUID id.
+
+**Internal storage:**
+
+```java
+private final Map<String, Customer> customerById = new HashMap<>();
+```
+
+### Methods
+
+#### save
+
+```java
+public void save(Customer c)
+```
+
+Stores the supplied `Customer` in the map under its `id`. If a customer with that id already exists, it is silently replaced.
+
+<ParamField path="c" type="Customer" required>
+  The `Customer` instance to persist. The map key is taken from `c.getId()`.
+</ParamField>
+
+```java
+// Example
+String customerId = UUID.randomUUID().toString();
+Customer customer = new Customer(customerId, "Alice Smith", "alice@example.com");
+customerRepository.save(customer);
+```
+
+---
+
+#### findAll
+
+```java
+public List<Customer> findAll()
+```
+
+Returns all stored customers as a new `ArrayList`. Order is not guaranteed.
+
+<ResponseField name="return" type="List&lt;Customer&gt;">
+  A new `ArrayList` containing all `Customer` values in the map. Returns an empty list if no customers have been saved.
+</ResponseField>
+
+```java
+// Example
+List<Customer> all = customerRepository.findAll();
+all.forEach(c -> System.out.println(c.getName() + " - " + c.getEmail()));
+```
+
+---
+
+## TransactionRepository
+
+**Package:** `repository.TransactionRepository`
+
+Stores `Transaction` objects grouped by account number. Each account number maps to an ordered list of transactions, building up a per-account history over time.
+
+**Internal storage:**
+
+```java
+private final Map<String, List<Transaction>> txByAccount = new HashMap<>();
+```
+
+### Methods
+
+#### add
+
+```java
+public void add(Transaction transaction)
+```
+
+Appends the supplied `Transaction` to the list associated with its account number. If no list exists for that account yet, one is created automatically via `computeIfAbsent`.
+
+<ParamField path="transaction" type="Transaction" required>
+  The `Transaction` to record. The map key is taken from `transaction.getAccountNumber()`.
+</ParamField>
+
+```java
+// Example
+Transaction tx = new Transaction(
+    "AC000001",
+    500.0,
+    UUID.randomUUID().toString(),
+    "Payroll",
+    LocalDateTime.now(),
+    Type.DEPOSIT
+);
+transactionRepository.add(tx);
+```
+
+---
+
+#### findByAccount
+
+```java
+public List<Transaction> findByAccount(String account)
+```
+
+Returns a defensive copy of all transactions recorded for the given account number. Uses `getOrDefault` with `Collections.emptyList()` so that querying a number with no transactions never throws.
+
+<ParamField path="account" type="String" required>
+  The account number whose transaction list should be returned (e.g., `"AC000001"`).
+</ParamField>
+
+<ResponseField name="return" type="List&lt;Transaction&gt;">
+  A new `ArrayList` containing all transactions for the account in insertion order. Returns an empty list if the account number has no recorded transactions or does not exist in the map.
+</ResponseField>
+
+```java
+// Example
+List<Transaction> history = transactionRepository.findByAccount("AC000001");
+history.forEach(t -> System.out.println(t.getTimestamp() + " | " + t.getType() + " | " + t.getAmount()));
+```

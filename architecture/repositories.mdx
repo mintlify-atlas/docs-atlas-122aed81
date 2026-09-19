@@ -1,0 +1,152 @@
+---
+title: "In-Memory Repositories: Storage Layer for Accounts and Transactions"
+sidebarTitle: "Repositories"
+description: "All data is stored in HashMap-backed repositories. AccountRepository, CustomerRepository, and TransactionRepository provide typed CRUD operations with no external dependencies."
+---
+
+The repository layer is the system's sole storage mechanism. Each of the three repositories wraps a `HashMap` and exposes a small set of typed methods that cover exactly the query patterns the service layer needs — nothing more. There is no database, no ORM, no file I/O, and no serialization: data exists only as live Java objects in the JVM heap. `BankServiceImpl` instantiates all three repositories as private `final` fields at construction time and is the only component that calls them directly.
+
+<Warning>
+  All data is in-memory — nothing is persisted to disk. The repositories are reset when the JVM exits. Every account, customer, and transaction created during a session is permanently lost when the process stops.
+</Warning>
+
+---
+
+## AccountRepository
+
+`AccountRepository` is the central store for `Account` objects. It is keyed by account number, which means lookups by number are O(1) `HashMap` gets. Two additional query methods support the service layer's list and search operations.
+
+**Storage field:**
+
+```java
+private final Map<String, Account> accountsByNumber = new HashMap<>();
+```
+
+| Method | Signature | Description |
+|---|---|---|
+| `save` | `void save(Account account)` | Inserts or replaces the account under its account number key. Called once when an account is first created; also implicitly "updates" the account on balance changes because the stored reference is mutated in place. |
+| `findAll` | `List<Account> findAll()` | Returns a new `ArrayList` containing all stored accounts. The list is a snapshot — modifying it does not affect the map. |
+| `findByNumber` | `Optional<Account> findByNumber(String accountNumber)` | Wraps the `HashMap.get` result in `Optional.ofNullable`. Returns `Optional.empty()` for an unknown account number, allowing the service layer to call `.orElseThrow()` without a null check. |
+| `findByCustomerId` | `List<Account> findByCustomerId(String customerId)` | Iterates all stored accounts and collects those whose `customerId` field matches the argument. Used by the customer-name search feature in `BankServiceImpl`. |
+
+```java AccountRepository.java
+package repository;
+
+import domain.Account;
+
+import java.util.*;
+
+public class AccountRepository {
+    private final Map<String, Account> accountsByNumber = new HashMap<>();
+
+    public void save(Account account) {
+        accountsByNumber.put(account.getAccountNumber(), account);
+    }
+
+    public List<Account> findAll() {
+        return new ArrayList<>(accountsByNumber.values());
+    }
+
+    // Wrapped inside Optional as user can also enter null
+    public Optional<Account> findByNumber(String accountNumber) {
+        return Optional.ofNullable(accountsByNumber.get(accountNumber));
+    }
+
+    public List<Account> findByCustomerId(String customerId) {
+        List<Account> result = new ArrayList<>();
+        for (Account a : accountsByNumber.values()) {
+            if (a.getCustomerId().equals(customerId))
+                result.add(a);
+        }
+        return result;
+    }
+}
+```
+
+---
+
+## CustomerRepository
+
+`CustomerRepository` stores `Customer` objects keyed by their UUID `id`. The current implementation exposes only two methods because the service layer never needs to look up a single customer by ID — it either saves a new customer or scans all customers for the name-search feature.
+
+**Storage field:**
+
+```java
+private final Map<String, Customer> customerById = new HashMap<>();
+```
+
+| Method | Signature | Description |
+|---|---|---|
+| `save` | `void save(Customer c)` | Inserts the customer under its `id` key. Called once per `openAccount` operation in `BankServiceImpl`. |
+| `findAll` | `List<Customer> findAll()` | Returns a new `ArrayList` of all stored customers. Used by `BankServiceImpl.searchAccountsByCustomerName` to stream-filter on the customer name field. |
+
+```java CustomerRepository.java
+package repository;
+
+import domain.Customer;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class CustomerRepository {
+    private final Map<String, Customer> customerById = new HashMap<>();
+
+    public List<Customer> findAll() {
+        return new ArrayList<>(customerById.values());
+    }
+
+    public void save(Customer c) {
+        customerById.put(c.getId(), c);
+    }
+}
+```
+
+---
+
+## TransactionRepository
+
+`TransactionRepository` has a different internal structure from the other two repositories. Rather than a flat `Map<String, Transaction>`, it uses a `Map<String, List<Transaction>>` keyed by account number. This means all transactions for a given account are grouped together, making the account-statement query a single map lookup.
+
+**Storage field:**
+
+```java
+private final Map<String, List<Transaction>> txByAccount = new HashMap<>();
+```
+
+| Method | Signature | Description |
+|---|---|---|
+| `add` | `void add(Transaction transaction)` | Appends the transaction to the list stored under its `accountNumber` key. Uses `computeIfAbsent` to lazily create the list the first time a transaction is recorded for a new account number — no manual null check required. |
+| `findByAccount` | `List<Transaction> findByAccount(String account)` | Returns a new `ArrayList` copy of the transaction list for the given account number. Uses `getOrDefault` with `Collections.emptyList()` to safely return an empty list for accounts with no recorded transactions. |
+
+```java TransactionRepository.java
+package repository;
+
+import domain.Transaction;
+
+import java.util.*;
+
+public class TransactionRepository {
+    private final Map<String, List<Transaction>> txByAccount = new HashMap<>();
+
+    public void add(Transaction transaction) {
+        List<Transaction> list = txByAccount.computeIfAbsent(
+            transaction.getAccountNumber(), k -> new ArrayList<>()
+        );
+        list.add(transaction);
+    }
+
+    public List<Transaction> findByAccount(String account) {
+        return new ArrayList<>(txByAccount.getOrDefault(account, Collections.emptyList()));
+    }
+}
+```
+
+The use of `computeIfAbsent` in `add` is worth noting: if the account number is not yet a key in `txByAccount`, it creates and stores a fresh `ArrayList` under that key, then returns it so the new transaction can be appended — all in a single call. This avoids a two-step `containsKey` / `put` pattern.
+
+---
+
+<Tip>
+  To extend the system with persistence, replace these three repository implementations with ones backed by a database, a file, or any other storage medium — while keeping the same method signatures. `BankServiceImpl` depends only on the method names and return types shown above; it does not care how or where data is actually stored.
+</Tip>

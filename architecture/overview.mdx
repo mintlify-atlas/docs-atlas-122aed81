@@ -1,0 +1,119 @@
+---
+title: "Architecture Overview: Layered Design of the Bank System"
+sidebarTitle: "Overview"
+description: "The Bank Management System uses four distinct layers: console UI, service interface, in-memory repositories, and domain entities. Learn how each layer interacts."
+---
+
+The Bank Management System is organized into four clearly separated layers that follow a classic layered architecture pattern. Each layer has a single, well-defined responsibility — the console UI handles user interaction, the service layer enforces business rules, the repository layer manages in-memory state, and the domain layer defines the core data structures. This separation makes the system easy to reason about: you can change how data is stored (for example, swapping `HashMap`s for a database) without touching business logic, and you can extend the console UI without modifying service behavior.
+
+## The Four Layers
+
+<Steps>
+  <Step title="Console UI — app.Main">
+    The entry point of the application. `Main` instantiates a `BankServiceImpl`, opens a `Scanner` on `System.in`, and drives a `while` loop that presents an eight-item menu to the user. Each menu selection delegates immediately to the service layer — `Main` contains no business logic of its own. After each service call it prints a confirmation or the returned data directly to `System.out`.
+
+    Supported operations from the menu:
+    - **Open Account** — collects name, email, account type, and optional initial deposit
+    - **Deposit / Withdraw** — reads account number and amount, calls the corresponding service method
+    - **Transfer** — reads source account, destination account, and amount
+    - **Account Statement** — prints all transactions for an account, formatted as `timestamp | type | amount | note`
+    - **List Accounts** — prints every account in sorted order
+    - **Search Accounts by Customer Name** — partial-name search across all customers
+  </Step>
+
+  <Step title="Service Layer — service.BankService + service.impl.BankServiceImpl">
+    `BankService` is a plain Java interface that declares the seven public operations the application exposes. `BankServiceImpl` is the sole implementation. It owns all business logic: input validation, balance arithmetic, account-number generation, and transaction recording. It holds private instances of all three repositories and coordinates between them.
+
+    No caller above this layer touches a repository directly — the service is the only component allowed to read or write stored data.
+  </Step>
+
+  <Step title="Repository Layer — repository.*">
+    Three repository classes (`AccountRepository`, `CustomerRepository`, `TransactionRepository`) each wrap a `HashMap` and provide typed CRUD methods. There is no database, no file I/O, and no serialization. The repositories are instantiated once inside `BankServiceImpl` and live for the duration of the JVM process.
+
+    Each repository exposes only the query shapes the service actually needs — for example, `AccountRepository.findByCustomerId` powers the name-search feature, while `TransactionRepository.findByAccount` powers the account statement.
+  </Step>
+
+  <Step title="Domain Layer — domain.*">
+    Four plain Java classes and one enum form the data model: `Account`, `Customer`, `Transaction`, and `Type`. They contain fields, a single all-args constructor, and standard getters/setters — nothing else. No annotations, no framework dependencies. The domain objects are created by `BankServiceImpl`, passed through repositories, and read back by `Main` for display.
+  </Step>
+</Steps>
+
+## Quick Navigation
+
+<CardGroup cols={2}>
+  <Card title="Domain Model" icon="database" href="/architecture/domain-model">
+    Field-by-field reference for Account, Customer, Transaction, and the Type enum.
+  </Card>
+  <Card title="Repositories" icon="server" href="/architecture/repositories">
+    How each HashMap-backed repository stores and retrieves data.
+  </Card>
+  <Card title="BankService API" icon="code" href="/api/bank-service">
+    Every method on the BankService interface with parameters and behavior.
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/error-handling/exceptions">
+    AccountNotFoundException, InsufficientFundsException, and ValidationException explained.
+  </Card>
+</CardGroup>
+
+## Service Layer Internals
+
+`BankServiceImpl` holds three repository instances as `final` fields, initialized at construction time — no dependency injection framework is used:
+
+```java
+private final AccountRepository accountRepository = new AccountRepository();
+private final TransactionRepository transactionRepository = new TransactionRepository();
+private final CustomerRepository customerRepository = new CustomerRepository();
+```
+
+Input validation is expressed as lambda instances of the `Validation<T>` functional interface (defined in `util.Validation`). Each validator receives a value and throws a `ValidationException` if the value is invalid. The four validators declared in `BankServiceImpl` are:
+
+```java
+private final Validation<String> validateName = name -> {
+    if (name == null || name.isBlank()) throw new ValidationException("Name is required.");
+};
+private final Validation<String> validateEmail = email -> {
+    if (email == null || !email.contains("@")) throw new ValidationException("Please enter correct email");
+};
+private final Validation<Double> validateAmountPositive = amount -> {
+    if (amount == null || amount < 0)
+        throw new ValidationException("Please enter a valid amount");
+};
+```
+
+Account numbers are generated sequentially using the current size of the account repository plus one, zero-padded to six digits with an `AC` prefix:
+
+```java
+private String getAccountNumber() {
+    int size = accountRepository.findAll().size() + 1;
+    String accountNumber = String.format("AC%06d", size);
+    return accountNumber;
+}
+```
+
+This produces identifiers like `AC000001`, `AC000002`, and so on. Because the count is derived from the live `HashMap`, the numbering is contiguous as long as accounts are never deleted — which is the case in the current implementation.
+
+## Data Flow for a Deposit
+
+The following steps trace exactly what happens inside the system when `deposit(accountNumber, amount, note)` is called on `BankServiceImpl`:
+
+<Steps>
+  <Step title="Validate the Amount">
+    `validateAmountPositive.validate(amount)` is called first. If `amount` is `null` or negative, a `ValidationException` is thrown immediately and no further processing occurs.
+  </Step>
+  <Step title="Look Up the Account">
+    `accountRepository.findByNumber(accountNumber)` returns an `Optional<Account>`. If the optional is empty — meaning no account exists for that number — `orElseThrow` raises an `AccountNotFoundException` with the message `"Account not found: <accountNumber>"`.
+  </Step>
+  <Step title="Update the Balance">
+    The retrieved `Account` object's balance is updated in place: `account.setBalance(account.getBalance() + amount)`. Because the repository stores object references, this mutation is immediately visible to any subsequent call that retrieves the same account — no explicit re-save is needed.
+  </Step>
+  <Step title="Create a Transaction Record">
+    A new `Transaction` is constructed with the account number, the deposit amount, a freshly generated `UUID`, the caller-supplied note string, the current `LocalDateTime`, and the type `Type.DEPOSIT`.
+  </Step>
+  <Step title="Persist the Transaction">
+    `transactionRepository.add(transaction)` appends the transaction to the list stored under the account's key in `txByAccount`. This record will appear in the account statement the next time `getStatement` is called.
+  </Step>
+</Steps>
+
+<Note>
+  There is no persistence layer in this system — all data lives in the JVM heap. Restarting the process resets all state: every account, customer, and transaction is lost. To add durability you would need to replace the in-memory repositories with implementations that read from and write to a file or database.
+</Note>

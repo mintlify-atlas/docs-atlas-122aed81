@@ -1,0 +1,114 @@
+---
+title: "Transfer Funds Between Bank Accounts"
+sidebarTitle: "Transfers"
+description: "Move funds from one account to another in a single operation. The system creates two transaction records: a TRANSFER_OUT on the source and a TRANSFER_IN on the destination."
+---
+
+A transfer moves a specified amount from a source account to a destination account in one atomic operation. Both account balances are updated together, and the system records **two** transaction entries — one on each account — so that the full picture is visible on either account's statement. All validation is performed before any balance change takes place, ensuring the system never ends up in a partially updated state.
+
+## Console walkthrough
+
+Select menu option **4** from the main menu to initiate a transfer.
+
+<Steps>
+  <Step title="Select 'Transfer' from the main menu">
+    At the `CHOOSE:` prompt, enter `4` and press **Enter**.
+
+    ```text
+    CHOOSE: 4
+    CHOICE: 4
+    ```
+  </Step>
+
+  <Step title="Enter the source account number">
+    ```text
+    From Account:
+    AC000001
+    ```
+  </Step>
+
+  <Step title="Enter the destination account number">
+    ```text
+    To Account:
+    AC000002
+    ```
+  </Step>
+
+  <Step title="Enter the transfer amount">
+    ```text
+    Amount:
+    300
+    ```
+  </Step>
+</Steps>
+
+### Full console session
+
+```text
+Welcome to Console Bank
+1) Open Account
+2) Deposit
+3) Withdraw
+4) Transfer
+5) Account Statement
+6) List Accounts
+7) Search Accounts by Customer Name
+0) Exit
+
+CHOOSE: 4
+CHOICE: 4
+From Account:
+AC000001
+To Account:
+AC000002
+Amount:
+300
+```
+
+## Programmatic example
+
+```java
+bankService.transfer("AC000001", "AC000002", 300.0, "Rent Payment");
+```
+
+## Dual transaction recording
+
+When a transfer completes, the system persists exactly two `Transaction` objects — one for each side of the transfer. Both share the same `amount` and `note`.
+
+| Account    | Transaction type   | Effect on balance |
+|------------|--------------------|-------------------|
+| `AC000001` (source)      | `Type.TRANSFER_OUT` | Decreased by `amount` |
+| `AC000002` (destination) | `Type.TRANSFER_IN`  | Increased by `amount` |
+
+This means that when you pull the statement for either account, the transfer will appear as a line item with the correct direction clearly indicated by the transaction type.
+
+### Resulting statement entries
+
+```text
+AC000001 statement:
+2024-01-15T10:00:00 | TRANSFER_OUT | 300.0 | Rent Payment
+
+AC000002 statement:
+2024-01-15T10:00:00 | TRANSFER_IN | 300.0 | Rent Payment
+```
+
+## Validation rules
+
+All checks are executed before any balance update or transaction record is created.
+
+| Rule                                          | Exception thrown            | Message                                  |
+|-----------------------------------------------|-----------------------------|------------------------------------------|
+| Amount must not be `null`                     | `ValidationException`       | `Please enter a valid amount`            |
+| Amount must be `>= 0`                         | `ValidationException`       | `Please enter a valid amount`            |
+| Source and destination must not be the same   | `ValidationException`       | `Cannot transfer to your own account.`   |
+| Source account must exist                     | `AccountNotFoundException`  | `Account not found: <number>`            |
+| Destination account must exist                | `AccountNotFoundException`  | `Account not found: <number>`            |
+| Source balance must be `>= amount`            | `InsufficientFundsException`| `Insufficient Balance`                   |
+
+<Warning>
+  Providing the same account number for both source and destination throws a `ValidationException` with the message `"Cannot transfer to your own account."` This check runs before any account lookup.
+</Warning>
+
+<Warning>
+  If the source account does not hold sufficient funds, the system throws an `InsufficientFundsException` with the message `"Insufficient Balance"`. Neither account balance is modified, and no transaction records are created.
+</Warning>

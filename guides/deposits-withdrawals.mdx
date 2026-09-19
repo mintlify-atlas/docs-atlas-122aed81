@@ -1,0 +1,157 @@
+---
+title: "Deposit and Withdraw Funds from a Bank Account"
+sidebarTitle: "Deposits & Withdrawals"
+description: "Deposit any positive amount into an account or withdraw funds with automatic balance protection. Both operations create a Transaction record with a timestamp and note."
+---
+
+Deposits and withdrawals are the two fundamental operations for moving money into and out of an individual account. Both operations validate the amount and confirm the account exists before updating the balance. Each successful operation creates a **Transaction** record that captures the type, amount, timestamp, and a descriptive note — forming the audit trail you can later retrieve as an account statement.
+
+---
+
+## Deposit
+
+A deposit increases the account balance by the specified amount and records a `Type.DEPOSIT` transaction.
+
+### Console walkthrough
+
+Select menu option **2** from the main menu to make a deposit.
+
+<Steps>
+  <Step title="Select 'Deposit' from the main menu">
+    At the `CHOOSE:` prompt, enter `2` and press **Enter**.
+
+    ```text
+    CHOOSE: 2
+    CHOICE: 2
+    ```
+  </Step>
+
+  <Step title="Enter the account number">
+    ```text
+    Account number:
+    AC000001
+    ```
+  </Step>
+
+  <Step title="Enter the deposit amount">
+    ```text
+    Amount:
+    500
+    Deposited
+    ```
+  </Step>
+</Steps>
+
+### Programmatic example
+
+```java
+bankService.deposit("AC000001", 500.0, "Salary");
+```
+
+### Deposit validation
+
+| Rule                        | Exception thrown          | Message                          |
+|-----------------------------|---------------------------|----------------------------------|
+| Amount must not be `null`   | `ValidationException`     | `Please enter a valid amount`    |
+| Amount must be `>= 0`       | `ValidationException`     | `Please enter a valid amount`    |
+| Account must exist          | `AccountNotFoundException`| `Account not found: <number>`    |
+
+### Result
+
+- The account's `balance` field is increased by the specified `amount`.
+- A `Transaction` with `type = Type.DEPOSIT` is persisted to the transaction repository with the current `LocalDateTime` timestamp and the supplied `note`.
+
+---
+
+## Withdraw
+
+A withdrawal decreases the account balance by the specified amount and records a `Type.WITHDRAW` transaction. The system checks that the account holds sufficient funds before making any changes.
+
+### Console walkthrough
+
+Select menu option **3** from the main menu to make a withdrawal.
+
+<Steps>
+  <Step title="Select 'Withdraw' from the main menu">
+    At the `CHOOSE:` prompt, enter `3` and press **Enter**.
+
+    ```text
+    CHOOSE: 3
+    CHOICE: 3
+    ```
+  </Step>
+
+  <Step title="Enter the account number">
+    ```text
+    Account number:
+    AC000001
+    ```
+  </Step>
+
+  <Step title="Enter the withdrawal amount">
+    ```text
+    Amount:
+    200
+    Withdrawn
+    ```
+  </Step>
+</Steps>
+
+### Programmatic example
+
+```java
+bankService.withdraw("AC000001", 200.0, "ATM Withdrawal");
+```
+
+### Withdrawal validation
+
+| Rule                              | Exception thrown            | Message                          |
+|-----------------------------------|-----------------------------|----------------------------------|
+| Amount must not be `null`         | `ValidationException`       | `Please enter a valid amount`    |
+| Amount must be `>= 0`             | `ValidationException`       | `Please enter a valid amount`    |
+| Account must exist                | `AccountNotFoundException`  | `Account not found: <number>`    |
+| Balance must be `>= amount`       | `InsufficientFundsException`| `Insufficient Balance`           |
+
+### Result
+
+- The account's `balance` field is decreased by the specified `amount`.
+- A `Transaction` with `type = Type.WITHDRAW` is persisted to the transaction repository with the current `LocalDateTime` timestamp and the supplied `note`.
+
+---
+
+## Console session: deposit then withdrawal
+
+```text
+Welcome to Console Bank
+1) Open Account
+2) Deposit
+...
+
+CHOOSE: 2
+CHOICE: 2
+Account number:
+AC000001
+Amount:
+500
+Deposited
+
+CHOOSE: 3
+CHOICE: 3
+Account number:
+AC000001
+Amount:
+200
+Withdrawn
+```
+
+<Warning>
+  Attempting to withdraw more than the current account balance throws an `InsufficientFundsException` with the message `"Insufficient Balance"`. The balance is **not** modified and no transaction record is created.
+</Warning>
+
+<Note>
+  The `note` parameter is stored directly on the `Transaction` record and appears verbatim in the account statement. Use descriptive notes — for example `"Salary"`, `"Rent"`, or `"ATM Withdrawal"` — so that the statement is easy to read and audit later.
+</Note>
+
+<Tip>
+  After making deposits or withdrawals, you can review the resulting transactions via menu option **5** (Account Statement) or by calling `bankService.getStatement("AC000001")` programmatically. See [Account Statement](/guides/account-statement) for details.
+</Tip>

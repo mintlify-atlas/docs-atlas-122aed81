@@ -1,0 +1,81 @@
+---
+title: "View an Account Statement with Transaction History"
+sidebarTitle: "Account Statement"
+description: "Retrieve a chronologically ordered list of all transactions for any account. Each transaction shows a timestamp, type, amount, and the note provided at the time of the operation."
+---
+
+The account statement gives you a complete, chronological record of every financial event associated with a specific account. Each entry in the statement corresponds to a `Transaction` object and displays the exact moment the operation occurred, the transaction type (`DEPOSIT`, `WITHDRAW`, `TRANSFER_IN`, or `TRANSFER_OUT`), the amount involved, and the descriptive note that was supplied when the operation was performed. Transactions are returned sorted by `timestamp` in ascending order — the earliest transaction appears first.
+
+## Console walkthrough
+
+Select menu option **5** from the main menu to view the statement for an account.
+
+<Steps>
+  <Step title="Select 'Account Statement' from the main menu">
+    At the `CHOOSE:` prompt, enter `5` and press **Enter**.
+
+    ```text
+    CHOOSE: 5
+    CHOICE: 5
+    ```
+  </Step>
+
+  <Step title="Enter the account number">
+    ```text
+    Account Number:
+    AC000001
+    ```
+  </Step>
+
+  <Step title="Review the printed statement">
+    Each transaction is printed on its own line in the format `timestamp | type | amount | note`.
+
+    ```text
+    2024-01-15T09:00:00 | DEPOSIT | 1000.0 | Initial Deposit
+    2024-01-15T09:05:00 | DEPOSIT | 500.0 | Salary
+    2024-01-15T09:10:00 | WITHDRAW | 200.0 | ATM Withdrawal
+    2024-01-15T09:15:00 | TRANSFER_OUT | 300.0 | Rent Payment
+    ```
+  </Step>
+</Steps>
+
+## Sample statement output
+
+```text
+2024-01-15T09:00:00 | DEPOSIT | 1000.0 | Initial Deposit
+2024-01-15T09:05:00 | DEPOSIT | 500.0 | Salary
+2024-01-15T09:10:00 | WITHDRAW | 200.0 | ATM Withdrawal
+2024-01-15T09:15:00 | TRANSFER_OUT | 300.0 | Rent Payment
+```
+
+## Programmatic example
+
+```java
+List<Transaction> statement = bankService.getStatement("AC000001");
+for (Transaction t : statement) {
+    System.out.println(t.getTimestamp() + " | " + t.getType() + " | " + t.getAmount() + " | " + t.getNote());
+}
+```
+
+## Transaction fields
+
+| Field           | Type            | Description                                                                 |
+|-----------------|-----------------|-----------------------------------------------------------------------------|
+| `id`            | `String`        | UUID uniquely identifying this transaction record                           |
+| `type`          | `Type` (enum)   | One of `DEPOSIT`, `WITHDRAW`, `TRANSFER_IN`, or `TRANSFER_OUT`             |
+| `accountNumber` | `String`        | The account number this transaction belongs to                              |
+| `amount`        | `Double`        | The monetary amount involved in the operation                               |
+| `timestamp`     | `LocalDateTime` | The date and time at which the operation was recorded                       |
+| `note`          | `String`        | The description provided at the time the deposit, withdrawal, or transfer was performed |
+
+## Sorting
+
+`getStatement()` sorts all matching transactions by their `timestamp` field in **ascending** order using `Comparator.comparing(Transaction::getTimestamp)`. The oldest transaction is always the first item returned; the most recent is last.
+
+<Note>
+  The statement only includes transactions whose `accountNumber` field matches the account number you supply. For transfer operations, the sender's account holds a `TRANSFER_OUT` record and the receiver's account holds a separate `TRANSFER_IN` record — each account's statement reflects only its own side of the transfer.
+</Note>
+
+<Tip>
+  Pass a meaningful `note` when calling `deposit()`, `withdraw()`, or `transfer()` to make statements easier to read and audit. Notes such as `"Salary"`, `"Monthly Rent"`, or `"ATM Withdrawal"` are far more useful than generic labels when reviewing a long transaction history.
+</Tip>

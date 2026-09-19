@@ -1,0 +1,143 @@
+---
+title: "Open a Bank Account with the Bank Management System"
+sidebarTitle: "Open Account"
+description: "Create a SAVINGS or CURRENT bank account by providing a customer name, email address, account type, and optional initial deposit. Accounts receive auto-generated numbers."
+---
+
+Opening a bank account creates both a **Customer** record and an **Account** record in the system. You supply a name, email address, and account type; the system generates a unique account number automatically using a sequential, zero-padded format. If you provide an initial deposit at creation time, the system immediately records a `DEPOSIT` transaction against the new account before confirming success.
+
+## Console walkthrough
+
+Use menu option **1** from the main menu to open a new account interactively.
+
+<Steps>
+  <Step title="Select 'Open Account' from the main menu">
+    At the `CHOOSE:` prompt, enter `1` and press **Enter**.
+
+    ```text
+    Welcome to Console Bank
+    1) Open Account
+    2) Deposit
+    3) Withdraw
+    4) Transfer
+    5) Account Statement
+    6) List Accounts
+    7) Search Accounts by Customer Name
+    0) Exit
+
+    CHOOSE: 1
+    CHOICE: 1
+    ```
+  </Step>
+
+  <Step title="Enter the customer's full name">
+    Type the customer's full name and press **Enter**.
+
+    ```text
+    Customer name:
+    Alice Smith
+    ```
+  </Step>
+
+  <Step title="Enter the customer's email address">
+    Type a valid email address (must contain `@`) and press **Enter**.
+
+    ```text
+    Customer email:
+    alice@example.com
+    ```
+  </Step>
+
+  <Step title="Choose an account type">
+    Enter either `SAVINGS` or `CURRENT` (case-insensitive) and press **Enter**.
+
+    ```text
+    Account Type (SAVINGS/CURRENT):
+    SAVINGS
+    ```
+  </Step>
+
+  <Step title="Enter an optional initial deposit">
+    Enter a numeric amount or leave the line blank to default to `0`.
+
+    ```text
+    Initial deposit (optional, blank for 0):
+    1000
+    ```
+  </Step>
+
+  <Step title="Account confirmation">
+    The system prints the new account number and, if a deposit was provided, records it as an `Initial Deposit` transaction.
+
+    ```text
+    Account opened: AC000001
+    ```
+  </Step>
+</Steps>
+
+### Full console session
+
+```text
+Welcome to Console Bank
+1) Open Account
+2) Deposit
+3) Withdraw
+4) Transfer
+5) Account Statement
+6) List Accounts
+7) Search Accounts by Customer Name
+0) Exit
+
+CHOOSE: 1
+CHOICE: 1
+Customer name:
+Alice Smith
+Customer email:
+alice@example.com
+Account Type (SAVINGS/CURRENT):
+SAVINGS
+Initial deposit (optional, blank for 0):
+1000
+Account opened: AC000001
+```
+
+## Using BankService directly
+
+You can open an account programmatically by calling `openAccount()` on a `BankServiceImpl` instance. The method returns the generated account number, which you can immediately use to record an initial deposit.
+
+```java
+BankService bankService = new BankServiceImpl();
+String accountNumber = bankService.openAccount("Alice Smith", "alice@example.com", "SAVINGS");
+// Optionally make an initial deposit
+bankService.deposit(accountNumber, 1000.0, "Initial Deposit");
+System.out.println("Account opened: " + accountNumber); // AC000001
+```
+
+## Account number format
+
+Account numbers follow the pattern `AC%06d` — the prefix `AC` followed by a six-digit, zero-padded integer. The integer is determined by taking the total number of existing accounts and adding one at the moment the account is created.
+
+| Account created | Account number |
+|-----------------|---------------|
+| 1st             | AC000001      |
+| 2nd             | AC000002      |
+| 10th            | AC000010      |
+| 100th           | AC000100      |
+
+## Validation rules
+
+`BankServiceImpl` enforces the following rules before creating an account. Any violation throws a `ValidationException`.
+
+| Field        | Rule                                               | Exception message               |
+|--------------|----------------------------------------------------|---------------------------------|
+| `name`       | Must not be `null` or blank                        | `Name is required.`             |
+| `email`      | Must not be `null` and must contain `@`            | `Please enter correct email`    |
+| `accountType`| Must be `SAVINGS` or `CURRENT` (case-insensitive) | `Type must be SAVINGS or CURRENT` |
+
+<Warning>
+  The account type must be exactly `SAVINGS` or `CURRENT` (case-insensitive). Providing any other value — such as `CHECKING` or `FIXED` — throws a `ValidationException` with the message `"Type must be SAVINGS or CURRENT"`.
+</Warning>
+
+<Note>
+  Each call to `openAccount()` also creates an internal **Customer** record linked to the new account. The customer ID is a UUID generated at creation time using `UUID.randomUUID()`. You do not need to manage customer records directly; the system handles this automatically.
+</Note>

@@ -1,47 +1,133 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with the Bank Management System"
+sidebarTitle: "Quickstart"
+description: "Clone, compile, and run the Bank Management System in three steps. Open your first account, deposit funds, and view a transaction statement in under five minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+This guide walks you through everything needed to get the Bank Management System running on your machine. By the end you will have compiled the project from source, launched the console menu, opened a bank account for a new customer, deposited funds, and retrieved a formatted transaction statement — all without touching a database or installing any build tool beyond the JDK.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+<Warning>
+  Java 17 or higher is required. `Main.java` uses text blocks (the multi-line `"""..."""` syntax for the menu) and arrow-style `switch` expressions, both of which were finalised in Java 17. Earlier versions will fail to compile.
+</Warning>
 
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+## Steps
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Clone the repository">
+    Download the source code and enter the project directory:
 
     ```bash
-    npm install your-package
+    git clone https://github.com/VaibhavDongre/Bank-Management-System-using-Java.git && cd Bank-Management-System-using-Java
     ```
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+
+  <Step title="Compile all sources">
+    Create the output directory, then use `find` to collect every `.java` file and pass it to `javac`:
 
     ```bash
-    your-cli init
+    mkdir -p out
+    find src -name "*.java" | xargs javac -d out
+    ```
+
+    All compiled `.class` files will be written to the `out/` directory, preserving the package hierarchy.
+  </Step>
+
+  <Step title="Run the application">
+    Launch the application by pointing the classpath at `out/` and specifying the fully-qualified main class:
+
+    ```bash
+    java -cp out app.Main
     ```
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
 
-    ```bash
-    your-cli start
+  <Step title="Interact with the menu">
+    After startup the console prints a welcome message followed by the main menu. Enter the number that corresponds to the operation you want to perform:
+
     ```
+    Welcome to Console Bank
+    1) Open Account
+    2) Deposit
+    3) Withdraw
+    4) Transfer
+    5) Account Statement
+    6) List Accounts
+    7) Search Accounts by Customer Name
+    0) Exit
+    ```
+
+    Type your choice and press **Enter**. The application loops back to this menu after each operation until you enter `0` to exit.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Your First Session
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+The walkthrough below shows a realistic sequence of interactions immediately after starting the app. Prompts printed by the application are shown without a prefix; your input lines are preceded by `>`.
+
+```text
+Welcome to Console Bank
+1) Open Account
+2) Deposit
+3) Withdraw
+4) Transfer
+5) Account Statement
+6) List Accounts
+7) Search Accounts by Customer Name
+0) Exit
+
+CHOOSE: > 1
+CHOICE: 1
+Customer name:
+> Alice Smith
+Customer email:
+> alice@example.com
+Account Type (SAVINGS/CURRENT):
+> SAVINGS
+Initial deposit (optional, bank for 0):
+> 1000
+Account opened: AC000001
+
+CHOOSE: > 2
+CHOICE: 2
+Account number:
+> AC000001
+Amount:
+> 500
+Deposited
+
+CHOOSE: > 5
+CHOICE: 5
+Account Number:
+> AC000001
+2024-06-01T10:15:32.104 | DEPOSIT | 1000.0 | Initial Deposit
+2024-06-01T10:16:44.821 | DEPOSIT | 500.0 | Deposit
+
+CHOOSE: > 0
+CHOICE: 0
+```
+
+**What happened:**
+1. Option `1` collected the customer's name, email, account type, and optional initial deposit. The service created a `Customer` record (UUID-keyed), then an `Account` record numbered `AC000001`, and recorded a `DEPOSIT` transaction for the initial 1 000.
+2. Option `2` added a further 500 to `AC000001` and appended a second `DEPOSIT` transaction.
+3. Option `5` fetched all transactions for `AC000001`, sorted them by timestamp, and printed each row as `timestamp | type | amount | note`.
+4. Option `0` set the `running` flag to `false`, exiting the `while` loop and terminating the JVM.
+
+<Tip>
+  Use option `7` (Search Accounts by Customer Name) to find an account when you know the customer's name but not the account number. The search is case-insensitive and matches any substring — entering `ali` will match `Alice Smith`.
 </Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="layer-group" href="/architecture/overview">
+    Understand how the domain model, repository layer, and service implementation fit together.
+  </Card>
+  <Card title="BankService Reference" icon="code" href="/api/bank-service">
+    Explore every method on the `BankService` interface with parameter details and return types.
+  </Card>
+  <Card title="Usage Guide" icon="book" href="/guides/open-account">
+    Step-by-step guides for each menu operation: open account, deposit, withdraw, transfer, and more.
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/error-handling/exceptions">
+    Learn how `AccountNotFoundException`, `InsufficientFundsException`, and `ValidationException` are raised and how to handle them.
+  </Card>
+</CardGroup>

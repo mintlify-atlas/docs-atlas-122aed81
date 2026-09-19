@@ -1,0 +1,112 @@
+---
+title: "Search and List Accounts by Customer Name"
+sidebarTitle: "Search Accounts"
+description: "Find accounts by partial customer name match or list all accounts in the system. Both operations return accounts sorted by account number in ascending order."
+---
+
+The Bank Management System provides two discovery operations: **list all accounts** and **search accounts by customer name**. Listing returns every account in the system, while the search filters accounts based on a case-insensitive, partial substring match against the customer name recorded at account creation. Both operations sort their results by account number in ascending order, making it easy to scan and locate specific accounts.
+
+---
+
+## List All Accounts
+
+The list operation retrieves every account currently stored in the system, sorted by account number from lowest (`AC000001`) to highest.
+
+### Console walkthrough
+
+Select menu option **6** from the main menu. No additional input is required — the system immediately prints all accounts.
+
+<Steps>
+  <Step title="Select 'List Accounts' from the main menu">
+    At the `CHOOSE:` prompt, enter `6` and press **Enter**.
+
+    ```text
+    CHOOSE: 6
+    CHOICE: 6
+    ```
+  </Step>
+
+  <Step title="Review the printed account list">
+    Each account is printed on its own line in the format `accountNumber | accountType | balance`.
+
+    ```text
+    AC000001 | SAVINGS | 1000.0
+    AC000002 | CURRENT | 0.0
+    AC000003 | SAVINGS | 750.0
+    ```
+  </Step>
+</Steps>
+
+### Programmatic example
+
+```java
+List<Account> all = bankService.listAccounts();
+all.forEach(a -> System.out.println(a.getAccountNumber() + " | " + a.getAccountType() + " | " + a.getBalance()));
+```
+
+Results are sorted by `accountNumber` in ascending order via `Comparator.comparing(Account::getAccountNumber)`.
+
+---
+
+## Search by Customer Name
+
+The search operation filters accounts whose associated customer name contains the supplied query string. Matching is **case-insensitive** and uses a **partial substring** comparison (`String.contains()`), so a query of `ali` will match customer names such as `Alice`, `Alia`, and `Alison`. A `null` query is treated as an empty string and therefore matches all customers.
+
+### Console walkthrough
+
+Select menu option **7** from the main menu, then enter the search term.
+
+<Steps>
+  <Step title="Select 'Search Accounts by Customer Name' from the main menu">
+    At the `CHOOSE:` prompt, enter `7` and press **Enter**.
+
+    ```text
+    CHOOSE: 7
+    CHOICE: 7
+    ```
+  </Step>
+
+  <Step title="Enter the partial customer name">
+    ```text
+    Customer name contains:
+    ali
+    ```
+  </Step>
+
+  <Step title="Review the matching accounts">
+    Only accounts whose customer name contains `ali` (case-insensitive) are shown.
+
+    ```text
+    AC000001 | SAVINGS | 1000.0
+    AC000004 | CURRENT | 250.0
+    ```
+
+    In this example, `AC000001` belongs to `Alice Smith` and `AC000004` belongs to `Alison Brown` — both names contain the substring `ali`.
+  </Step>
+</Steps>
+
+### Programmatic example
+
+```java
+List<Account> results = bankService.searchAccountsByCustomerName("ali");
+results.forEach(a -> System.out.println(a.getAccountNumber() + " | " + a.getAccountType() + " | " + a.getBalance()));
+```
+
+### How matching works
+
+The search implementation in `BankServiceImpl`:
+
+1. Normalises the query to lowercase. If the query is `null`, it is replaced with an empty string `""`.
+2. Iterates all `Customer` records and retains those whose `name`, converted to lowercase, **contains** the query string.
+3. Fetches all accounts linked to each matching customer.
+4. Sorts the combined result by `accountNumber` in ascending order.
+
+Because the match uses `String.contains()`, a single-character query such as `"a"` can return a large number of results. Use a more specific substring for a narrower result set.
+
+<Note>
+  Searching matches against the **customer name** stored when the account was opened. It does not search by email address or account number. To look up an account by its number, use `bankService.getStatement("AC000001")` or the deposit/withdraw operations, which validate and resolve the account number directly.
+</Note>
+
+<Tip>
+  Pass an empty string to `searchAccountsByCustomerName("")` to retrieve all accounts — this behaves identically to `listAccounts()`, since every customer name contains the empty string.
+</Tip>

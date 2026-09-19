@@ -1,0 +1,253 @@
+---
+title: "BankService Interface: Complete Method Reference"
+sidebarTitle: "BankService"
+description: "Full reference for the BankService interface. Documents all seven methods: openAccount, listAccounts, deposit, withdraw, transfer, getStatement, and searchAccountsByCustomerName."
+---
+
+`BankService` is the central service interface of the Bank Management System, defining the complete contract for all banking operations. Its sole implementation, `BankServiceImpl`, orchestrates validation, account and customer creation, balance updates, and transaction recording by delegating to the three in-memory repository classes. Any component that needs to perform banking operations should depend on this interface rather than directly on the implementation.
+
+## Interface Source
+
+```java
+package service;
+
+import domain.Account;
+import domain.Transaction;
+import java.util.List;
+
+public interface BankService {
+    String openAccount(String name, String email, String accountType);
+    List<Account> listAccounts();
+    void deposit(String accountNumber, Double amount, String note);
+    void withdraw(String accountNumber, Double amount, String withdraw);
+    void transfer(String from, String to, Double amount, String transfer);
+    List<Transaction> getStatement(String account);
+    List<Account> searchAccountsByCustomerName(String q);
+}
+```
+
+---
+
+## Methods
+
+### openAccount
+
+```java
+String openAccount(String name, String email, String accountType)
+```
+
+Opens a new bank account by creating a `Customer` record and a corresponding `Account` record with a zero starting balance. The account number is generated automatically by counting existing accounts in the repository and formatting the next index as `AC%06d` (e.g., `AC000001`).
+
+<ParamField path="name" type="String" required>
+  The customer's full name. Cannot be `null` or blank; throws `ValidationException` if empty.
+</ParamField>
+
+<ParamField path="email" type="String" required>
+  The customer's email address. Must contain the `@` character; throws `ValidationException` otherwise.
+</ParamField>
+
+<ParamField path="accountType" type="String" required>
+  The type of account to create. Accepted values are `"SAVINGS"` or `"CURRENT"` (case-insensitive). Throws `ValidationException` for any other value.
+</ParamField>
+
+**Returns:** `String` — the newly generated account number (e.g., `"AC000001"`).
+
+**Behavior:** A `UUID`-based customer ID is generated and a `Customer` object is saved to `CustomerRepository`. An `Account` object is then created with an initial balance of `0.0` and saved to `AccountRepository`. The account number is returned to the caller.
+
+**Throws:**
+- `ValidationException` — if `name` is null/blank, `email` does not contain `@`, or `accountType` is not a recognized value.
+
+```java
+// Example
+String accountNumber = bankService.openAccount("Alice Smith", "alice@example.com", "SAVINGS");
+System.out.println(accountNumber); // AC000001
+```
+
+---
+
+### listAccounts
+
+```java
+List<Account> listAccounts()
+```
+
+Retrieves every account currently held in the repository and returns them in ascending order by account number.
+
+**Returns:** `List<Account>` — all accounts sorted by `accountNumber` ascending. Returns an empty list if no accounts exist.
+
+**Behavior:** Calls `AccountRepository.findAll()` to obtain all stored accounts, then streams and sorts them using `Comparator.comparing(Account::getAccountNumber)`.
+
+**Throws:** Nothing.
+
+```java
+// Example
+List<Account> accounts = bankService.listAccounts();
+for (Account a : accounts) {
+    System.out.println(a.getAccountNumber() + " - " + a.getAccountType());
+}
+```
+
+---
+
+### deposit
+
+```java
+void deposit(String accountNumber, Double amount, String note)
+```
+
+Credits a monetary amount to the specified account and records a `Type.DEPOSIT` transaction with the current timestamp.
+
+<ParamField path="accountNumber" type="String" required>
+  The account number to credit. Must refer to an account that already exists in the repository.
+</ParamField>
+
+<ParamField path="amount" type="Double" required>
+  The amount to deposit. Must be `>= 0`; throws `ValidationException` if negative or `null`.
+</ParamField>
+
+<ParamField path="note" type="String" required>
+  A short description stored directly on the `Transaction` record (e.g., `"Payroll"`, `"Cash deposit"`).
+</ParamField>
+
+**Returns:** `void`
+
+**Behavior:** Validates the amount, then looks up the account via `AccountRepository.findByNumber()`. The account's balance is incremented by the specified amount. A new `Transaction` is created with a `UUID` id, the supplied note, `LocalDateTime.now()`, and type `Type.DEPOSIT`, then saved via `TransactionRepository.add()`.
+
+**Throws:**
+- `ValidationException` — if `amount` is `null` or less than `0`.
+- `AccountNotFoundException` — if no account exists for the given `accountNumber`.
+
+```java
+// Example
+bankService.deposit("AC000001", 500.0, "Payroll");
+```
+
+---
+
+### withdraw
+
+```java
+void withdraw(String accountNumber, Double amount, String note)
+```
+
+Debits a monetary amount from the specified account and records a `Type.WITHDRAW` transaction with the current timestamp.
+
+<ParamField path="accountNumber" type="String" required>
+  The account number to debit. Must refer to an existing account.
+</ParamField>
+
+<ParamField path="amount" type="Double" required>
+  The amount to withdraw. Must be `>= 0` and must not exceed the account's current balance.
+</ParamField>
+
+<ParamField path="note" type="String" required>
+  A short description stored on the `Transaction` record (e.g., `"Groceries"`, `"ATM withdrawal"`).
+</ParamField>
+
+**Returns:** `void`
+
+**Behavior:** Validates the amount positivity, then looks up the account. The account's balance is compared against `amount` using `Double.compareTo()`; if the balance is insufficient, the operation is aborted. Otherwise, the balance is decremented and a `Type.WITHDRAW` transaction is recorded.
+
+**Throws:**
+- `ValidationException` — if `amount` is `null` or less than `0`.
+- `AccountNotFoundException` — if no account exists for the given `accountNumber`.
+- `InsufficientFundsException` — if the account's current balance is less than `amount`.
+
+```java
+// Example
+bankService.withdraw("AC000001", 100.0, "Groceries");
+```
+
+---
+
+### transfer
+
+```java
+void transfer(String from, String to, Double amount, String note)
+```
+
+Moves a monetary amount from a source account to a destination account. Records a `Type.TRANSFER_OUT` transaction on the source and a `Type.TRANSFER_IN` transaction on the destination.
+
+<ParamField path="from" type="String" required>
+  The account number to debit. Must refer to an existing account and must differ from `to`.
+</ParamField>
+
+<ParamField path="to" type="String" required>
+  The account number to credit. Must refer to an existing account and must differ from `from`.
+</ParamField>
+
+<ParamField path="amount" type="Double" required>
+  The amount to transfer. Must be `>= 0` and must not exceed the balance of the `from` account.
+</ParamField>
+
+<ParamField path="note" type="String" required>
+  A description stored on both the `TRANSFER_OUT` and `TRANSFER_IN` transaction records.
+</ParamField>
+
+**Returns:** `void`
+
+**Behavior:** Validates the amount, then checks that `from` and `to` are not identical. Both accounts are looked up; the source account's balance is checked for sufficiency. The source balance is decremented and the destination balance incremented. Two `Transaction` objects are created — one with `Type.TRANSFER_OUT` for the source account and one with `Type.TRANSFER_IN` for the destination account — both sharing the same `amount`, `note`, and a freshly captured `LocalDateTime.now()`.
+
+**Throws:**
+- `ValidationException` — if `amount` is `null` or less than `0`, or if `from` equals `to`.
+- `AccountNotFoundException` — if either the `from` or the `to` account does not exist.
+- `InsufficientFundsException` — if the `from` account's balance is less than `amount`.
+
+```java
+// Example
+bankService.transfer("AC000001", "AC000002", 250.0, "Rent");
+```
+
+---
+
+### getStatement
+
+```java
+List<Transaction> getStatement(String account)
+```
+
+Returns all transactions associated with the given account number, sorted chronologically by timestamp.
+
+<ParamField path="account" type="String" required>
+  The account number whose transaction history should be retrieved.
+</ParamField>
+
+**Returns:** `List<Transaction>` — all recorded transactions for the account, sorted by `timestamp` ascending. Returns an empty list if no transactions have been recorded for the given account number (including non-existent account numbers, since the lookup is against the transaction store, not the account store).
+
+**Behavior:** Delegates to `TransactionRepository.findByAccount()`, which returns a defensive copy of the internal transaction list. The result is then sorted using `Comparator.comparing(Transaction::getTimestamp)`.
+
+**Throws:** Nothing.
+
+```java
+// Example
+List<Transaction> txns = bankService.getStatement("AC000001");
+for (Transaction t : txns) {
+    System.out.println(t.getTimestamp() + " | " + t.getType() + " | " + t.getAmount());
+}
+```
+
+---
+
+### searchAccountsByCustomerName
+
+```java
+List<Account> searchAccountsByCustomerName(String q)
+```
+
+Finds all accounts whose associated customer name contains the given query string, performing a case-insensitive partial match.
+
+<ParamField path="q" type="String">
+  The search query. Treated case-insensitively. A `null` value is coerced to an empty string `""`, which matches all customers. A partial name such as `"ali"` matches `"Alice"` and `"Malik"`.
+</ParamField>
+
+**Returns:** `List<Account>` — all matching accounts sorted by `accountNumber` ascending. Returns an empty list if no customers match the query.
+
+**Behavior:** The query is lowercased (or set to `""` if `null`). All customers from `CustomerRepository.findAll()` are streamed and filtered by whether their lowercased name contains the query. For each matching customer, `AccountRepository.findByCustomerId()` is called and the resulting accounts are flat-mapped into the stream. The final result is sorted by `accountNumber`.
+
+**Throws:** Nothing.
+
+```java
+// Example
+List<Account> results = bankService.searchAccountsByCustomerName("alice");
+results.forEach(a -> System.out.println(a.getAccountNumber()));
+```

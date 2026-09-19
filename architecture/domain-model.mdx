@@ -1,0 +1,271 @@
+---
+title: "Domain Model: Account, Customer, and Transaction Entities"
+sidebarTitle: "Domain Model"
+description: "The domain layer contains four classes: Account, Customer, Transaction, and the Type enum. Each maps to a core banking concept with typed fields and standard getters/setters."
+---
+
+The `domain` package is the foundation of the entire system. It contains four types — `Account`, `Customer`, `Transaction`, and the `Type` enum — that represent the core concepts of the bank. These are deliberately simple plain Java objects: each class declares a set of private fields, one all-args constructor, and a getter/setter pair for every field. There are no annotations, no framework dependencies, and no business logic inside the domain classes themselves. All rules about what values are valid or how objects relate to each other live in the service layer, leaving the domain layer stable and easy to extend.
+
+---
+
+## Account
+
+An `Account` represents a single bank account opened by a customer. It carries its own generated identifier, a reference back to the owning customer, the current balance, and the account type string supplied at creation time.
+
+| Field | Type | Description |
+|---|---|---|
+| `accountNumber` | `String` | Auto-generated identifier in `AC000001` format. Acts as the primary key in `AccountRepository`. |
+| `customerId` | `String` | UUID string that links this account to a `Customer` record stored in `CustomerRepository`. |
+| `balance` | `Double` | Current account balance. Mutated directly by `BankServiceImpl` on deposit, withdrawal, and transfer. |
+| `accountType` | `String` | The type supplied by the user at account creation — typically `"SAVINGS"` or `"CURRENT"`. |
+
+**Constructor signature:**
+
+```java
+Account(String accountNumber, String accountType, Double balance, String customerId)
+```
+
+Note that the parameter order in the constructor differs from the field declaration order: `accountType` is the second parameter while it is declared fourth in the class body.
+
+**Getters and setters:** `getAccountNumber()` / `setAccountNumber(String)`, `getCustomerId()` / `setCustomerId(String)`, `getBalance()` / `setBalance(Double)`, `getAccountType()` / `setAccountType(String)`.
+
+```java Account.java
+package domain;
+
+public class Account {
+    private String accountNumber;
+    private String customerId;
+    private Double balance;
+    private String accountType;
+
+    public Account(String accountNumber, String accountType, Double balance, String customerId) {
+        this.accountNumber = accountNumber;
+        this.customerId = customerId;
+        this.balance = balance;
+        this.accountType = accountType;
+    }
+
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+
+    public void setAccountNumber(String accountNumber) {
+        this.accountNumber = accountNumber;
+    }
+
+    public String getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(String customerId) {
+        this.customerId = customerId;
+    }
+
+    public Double getBalance() {
+        return balance;
+    }
+
+    public void setBalance(Double balance) {
+        this.balance = balance;
+    }
+
+    public String getAccountType() {
+        return accountType;
+    }
+
+    public void setAccountType(String accountType) {
+        this.accountType = accountType;
+    }
+}
+```
+
+<Note>
+  Account numbers are auto-generated strings like `AC000001` — they are **not** numeric IDs. Never parse or cast an account number to an integer. Always treat it as an opaque `String` key.
+</Note>
+
+---
+
+## Customer
+
+A `Customer` holds the personal details of the person who opened an account. One customer can be linked to multiple accounts through the `customerId` reference stored on each `Account`.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `String` | A `UUID.randomUUID().toString()` value assigned at account-opening time. Used as the key in `CustomerRepository`. |
+| `name` | `String` | The customer's full name. Must be non-null and non-blank (enforced by `validateName` in `BankServiceImpl`). |
+| `email` | `String` | The customer's email address. Must contain `@` (enforced by `validateEmail` in `BankServiceImpl`). |
+
+**Constructor signature:**
+
+```java
+Customer(String id, String name, String email)
+```
+
+**Getters and setters:** `getId()` / `setId(String)`, `getName()` / `setName(String)`, `getEmail()` / `setEmail(String)`.
+
+```java Customer.java
+package domain;
+
+public class Customer {
+    private String id;
+    private String name;
+    private String email;
+
+    public Customer(String id, String name, String email) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+}
+```
+
+<Tip>
+  The `customerId` field on `Account` links to a `Customer` record — use `CustomerRepository` and `AccountRepository` together to resolve the full account-plus-owner picture. For example, to display the owner's name next to an account, call `customerRepository.findAll()`, filter by `id`, and pair the result with the account from `accountRepository.findByNumber(...)`.
+</Tip>
+
+---
+
+## Transaction
+
+A `Transaction` is an immutable audit record created every time money moves. `BankServiceImpl` creates one `Transaction` per operation (deposit, withdrawal) or two per transfer (one `TRANSFER_OUT` on the source account and one `TRANSFER_IN` on the destination). Transactions are never updated or deleted.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `String` | A `UUID.randomUUID().toString()` value that uniquely identifies this transaction. |
+| `type` | `Type` | The kind of operation — one of `DEPOSIT`, `WITHDRAW`, `TRANSFER_IN`, or `TRANSFER_OUT`. |
+| `accountNumber` | `String` | The account number this transaction belongs to. Used as the key in `TransactionRepository`. |
+| `amount` | `Double` | The monetary amount involved in the operation. Always positive. |
+| `timestamp` | `LocalDateTime` | The wall-clock time at which the transaction was created, captured via `LocalDateTime.now()`. |
+| `note` | `String` | A free-text label supplied by the caller (e.g. `"Initial Deposit"`, `"Transfer"`). |
+
+**Constructor signature:**
+
+```java
+Transaction(String accountNumber, Double amount, String id, String note, LocalDateTime timestamp, Type type)
+```
+
+The parameter order in the constructor differs from the field declaration order in the class body. In particular, `type` is the last parameter even though it is declared second in the field list.
+
+**Getters and setters:** `getId()` / `setId(String)`, `getType()` / `setType(Type)`, `getAccountNumber()` / `setAccountNumber(String)`, `getAmount()` / `setAmount(Double)`, `getTimestamp()` / `setTimestamp(LocalDateTime)`, `getNote()` / `setNote(String)`.
+
+```java Transaction.java
+package domain;
+
+import java.time.LocalDateTime;
+
+public class Transaction {
+    private String id;
+    private Type type;
+    private String accountNumber;
+    private Double amount;
+    private LocalDateTime timestamp;
+    private String note;
+
+    public Transaction(String accountNumber, Double amount, String id, String note, LocalDateTime timestamp, Type type) {
+        this.id = id;
+        this.type = type;
+        this.accountNumber = accountNumber;
+        this.amount = amount;
+        this.timestamp = timestamp;
+        this.note = note;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public Type getType() {
+        return type;
+    }
+
+    public void setType(Type type) {
+        this.type = type;
+    }
+
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+
+    public void setAccountNumber(String accountNumber) {
+        this.accountNumber = accountNumber;
+    }
+
+    public Double getAmount() {
+        return amount;
+    }
+
+    public void setAmount(Double amount) {
+        this.amount = amount;
+    }
+
+    public LocalDateTime getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
+    }
+}
+```
+
+---
+
+## Type Enum
+
+The `Type` enum classifies every transaction into one of four categories. It is stored on the `Transaction` object and printed directly to the console in the account statement view.
+
+| Value | Meaning |
+|---|---|
+| `DEPOSIT` | Money was added to the account directly, either via the Deposit menu option or as an initial deposit at account opening. |
+| `WITHDRAW` | Money was removed from the account via the Withdraw menu option. |
+| `TRANSFER_IN` | Money was received into this account as part of a transfer from another account. |
+| `TRANSFER_OUT` | Money was sent out of this account as part of a transfer to another account. |
+
+A single transfer between two accounts always produces exactly two transaction records: one `TRANSFER_OUT` on the sending account and one `TRANSFER_IN` on the receiving account, both with the same amount and note.
+
+```java Type.java
+package domain;
+
+public enum Type {
+    DEPOSIT,
+    WITHDRAW,
+    TRANSFER_IN,
+    TRANSFER_OUT
+}
+```

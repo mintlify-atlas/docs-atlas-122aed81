@@ -1,7 +1,7 @@
 ---
 title: "Architecture Overview: Layered Design of the Bank System"
 sidebarTitle: "Overview"
-description: "The Bank Management System uses four distinct layers: console UI, service interface, in-memory repositories, and domain entities. Learn how each layer interacts."
+description: "The Bank Management System has four layers — console UI, service, in-memory repositories, and domain entities. Learn how each layer interacts."
 ---
 
 The Bank Management System is organized into four clearly separated layers that follow a classic layered architecture pattern. Each layer has a single, well-defined responsibility — the console UI handles user interaction, the service layer enforces business rules, the repository layer manages in-memory state, and the domain layer defines the core data structures. This separation makes the system easy to reason about: you can change how data is stored (for example, swapping `HashMap`s for a database) without touching business logic, and you can extend the console UI without modifying service behavior.
@@ -74,11 +74,19 @@ private final Validation<String> validateName = name -> {
 private final Validation<String> validateEmail = email -> {
     if (email == null || !email.contains("@")) throw new ValidationException("Please enter correct email");
 };
+private final Validation<String> validateType = type -> {
+    if (type == null || !(type.equalsIgnoreCase("SAVINGS") || !type.equalsIgnoreCase("WITHDRAW")))
+        throw new ValidationException("Type must be SAVINGS or CURRENT");
+};
 private final Validation<Double> validateAmountPositive = amount -> {
     if (amount == null || amount < 0)
         throw new ValidationException("Please enter a valid amount");
 };
 ```
+
+<Warning>
+  The `validateType` lambda contains a logic bug in the source: it checks `!type.equalsIgnoreCase("WITHDRAW")` instead of `type.equalsIgnoreCase("CURRENT")`. The condition `!(A || !B)` simplifies to `(!A && B)`, which means any string that is not `"SAVINGS"` AND is `"WITHDRAW"` would pass — effectively accepting only `"SAVINGS"` or `"WITHDRAW"` in practice, but the error message says `"SAVINGS or CURRENT"`. The code is reproduced verbatim from source above.
+</Warning>
 
 Account numbers are generated sequentially using the current size of the account repository plus one, zero-padded to six digits with an `AC` prefix:
 

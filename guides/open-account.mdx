@@ -1,7 +1,7 @@
 ---
 title: "Open a Bank Account with the Bank Management System"
 sidebarTitle: "Open Account"
-description: "Create a SAVINGS or CURRENT bank account by providing a customer name, email address, account type, and optional initial deposit. Accounts receive auto-generated numbers."
+description: "Create a SAVINGS or CURRENT bank account by entering a customer name, email, and account type. The system generates a unique account number automatically."
 ---
 
 Opening a bank account creates both a **Customer** record and an **Account** record in the system. You supply a name, email address, and account type; the system generates a unique account number automatically using a sequential, zero-padded format. If you provide an initial deposit at creation time, the system immediately records a `DEPOSIT` transaction against the new account before confirming success.
@@ -61,7 +61,7 @@ Use menu option **1** from the main menu to open a new account interactively.
     Enter a numeric amount or leave the line blank to default to `0`.
 
     ```text
-    Initial deposit (optional, blank for 0):
+    Initial deposit (optional, bank for 0):
     1000
     ```
   </Step>
@@ -96,7 +96,7 @@ Customer email:
 alice@example.com
 Account Type (SAVINGS/CURRENT):
 SAVINGS
-Initial deposit (optional, blank for 0):
+Initial deposit (optional, bank for 0):
 1000
 Account opened: AC000001
 ```

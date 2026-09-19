@@ -1,7 +1,7 @@
 ---
-title: "In-Memory Repositories: Storage Layer for Accounts and Transactions"
+title: "In-Memory Repositories: HashMap-Backed Data Storage"
 sidebarTitle: "Repositories"
-description: "All data is stored in HashMap-backed repositories. AccountRepository, CustomerRepository, and TransactionRepository provide typed CRUD operations with no external dependencies."
+description: "AccountRepository, CustomerRepository, and TransactionRepository each wrap a HashMap to store accounts, customers, and transactions entirely in JVM memory."
 ---
 
 The repository layer is the system's sole storage mechanism. Each of the three repositories wraps a `HashMap` and exposes a small set of typed methods that cover exactly the query patterns the service layer needs — nothing more. There is no database, no ORM, no file I/O, and no serialization: data exists only as live Java objects in the JVM heap. `BankServiceImpl` instantiates all three repositories as private `final` fields at construction time and is the only component that calls them directly.

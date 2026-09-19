@@ -1,7 +1,7 @@
 ---
-title: "Transfer Funds Between Bank Accounts"
+title: "How to Transfer Funds Between Bank Accounts in Java"
 sidebarTitle: "Transfers"
-description: "Move funds from one account to another in a single operation. The system creates two transaction records: a TRANSFER_OUT on the source and a TRANSFER_IN on the destination."
+description: "Move funds between two accounts in one operation. The system records a TRANSFER_OUT on the source account and a TRANSFER_IN on the destination account."
 ---
 
 A transfer moves a specified amount from a source account to a destination account in one atomic operation. Both account balances are updated together, and the system records **two** transaction entries — one on each account — so that the full picture is visible on either account's statement. All validation is performed before any balance change takes place, ensuring the system never ends up in a partially updated state.

@@ -1,7 +1,7 @@
 ---
-title: "BankService Interface: Complete Method Reference"
+title: "BankService Interface: Full Seven-Method Reference"
 sidebarTitle: "BankService"
-description: "Full reference for the BankService interface. Documents all seven methods: openAccount, listAccounts, deposit, withdraw, transfer, getStatement, and searchAccountsByCustomerName."
+description: "Full reference for all seven BankService methods: openAccount, listAccounts, deposit, withdraw, transfer, getStatement, and searchAccountsByCustomerName."
 ---
 
 `BankService` is the central service interface of the Bank Management System, defining the complete contract for all banking operations. Its sole implementation, `BankServiceImpl`, orchestrates validation, account and customer creation, balance updates, and transaction recording by delegating to the three in-memory repository classes. Any component that needs to perform banking operations should depend on this interface rather than directly on the implementation.
@@ -127,7 +127,7 @@ bankService.deposit("AC000001", 500.0, "Payroll");
 ### withdraw
 
 ```java
-void withdraw(String accountNumber, Double amount, String note)
+void withdraw(String accountNumber, Double amount, String withdraw)
 ```
 
 Debits a monetary amount from the specified account and records a `Type.WITHDRAW` transaction with the current timestamp.
@@ -140,8 +140,8 @@ Debits a monetary amount from the specified account and records a `Type.WITHDRAW
   The amount to withdraw. Must be `>= 0` and must not exceed the account's current balance.
 </ParamField>
 
-<ParamField path="note" type="String" required>
-  A short description stored on the `Transaction` record (e.g., `"Groceries"`, `"ATM withdrawal"`).
+<ParamField path="withdraw" type="String" required>
+  A short description stored on the `Transaction` record (e.g., `"Groceries"`, `"ATM withdrawal"`). This parameter is named `withdraw` in the interface signature.
 </ParamField>
 
 **Returns:** `void`
@@ -163,7 +163,7 @@ bankService.withdraw("AC000001", 100.0, "Groceries");
 ### transfer
 
 ```java
-void transfer(String from, String to, Double amount, String note)
+void transfer(String from, String to, Double amount, String transfer)
 ```
 
 Moves a monetary amount from a source account to a destination account. Records a `Type.TRANSFER_OUT` transaction on the source and a `Type.TRANSFER_IN` transaction on the destination.
@@ -180,13 +180,13 @@ Moves a monetary amount from a source account to a destination account. Records 
   The amount to transfer. Must be `>= 0` and must not exceed the balance of the `from` account.
 </ParamField>
 
-<ParamField path="note" type="String" required>
-  A description stored on both the `TRANSFER_OUT` and `TRANSFER_IN` transaction records.
+<ParamField path="transfer" type="String" required>
+  A description stored on both the `TRANSFER_OUT` and `TRANSFER_IN` transaction records. This parameter is named `transfer` in the interface signature.
 </ParamField>
 
 **Returns:** `void`
 
-**Behavior:** Validates the amount, then checks that `from` and `to` are not identical. Both accounts are looked up; the source account's balance is checked for sufficiency. The source balance is decremented and the destination balance incremented. Two `Transaction` objects are created — one with `Type.TRANSFER_OUT` for the source account and one with `Type.TRANSFER_IN` for the destination account — both sharing the same `amount`, `note`, and a freshly captured `LocalDateTime.now()`.
+**Behavior:** Validates the amount, then checks that `from` and `to` are not identical. Both accounts are looked up; the source account's balance is checked for sufficiency. The source balance is decremented and the destination balance incremented. Two `Transaction` objects are created — one with `Type.TRANSFER_OUT` for the source account and one with `Type.TRANSFER_IN` for the destination account — both sharing the same `amount`, `transfer` description, and a freshly captured `LocalDateTime.now()`.
 
 **Throws:**
 - `ValidationException` — if `amount` is `null` or less than `0`, or if `from` equals `to`.

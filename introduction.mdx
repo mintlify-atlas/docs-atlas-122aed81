@@ -1,7 +1,7 @@
 ---
-title: "Bank Management System: Java Console Banking App"
+title: "Bank Management System: Java Console Banking Application"
 sidebarTitle: "Introduction"
-description: "Bank Management System is a Java console app for core banking operations. It uses a layered architecture with a service interface, in-memory repositories, and custom exceptions."
+description: "Java console app for core banking: open accounts, deposit, withdraw, transfer, and view statements using a layered architecture with no database required."
 ---
 
 Bank Management System is a Java console application that demonstrates how to build a working banking back-end without any external database or framework. Running entirely in-memory, it lets you open accounts, move money, and inspect transaction histories through a simple numbered menu. The project is aimed at Java learners and interviewers who want to see clean separation of concerns — a service interface, concrete implementation, repository layer, domain model, and typed exception hierarchy — all wired together in plain Java.
@@ -39,7 +39,7 @@ Bank Management System is a Java console application that demonstrates how to bu
 
 The source tree is organised into focused packages so that each layer has a single responsibility:
 
-```
+```text
 src/
 ├── app/
 │   └── Main.java          # Console entry point and menu loop

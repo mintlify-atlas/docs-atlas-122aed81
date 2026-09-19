@@ -1,7 +1,7 @@
 ---
 title: "Domain Model: Account, Customer, and Transaction Entities"
 sidebarTitle: "Domain Model"
-description: "The domain layer contains four classes: Account, Customer, Transaction, and the Type enum. Each maps to a core banking concept with typed fields and standard getters/setters."
+description: "Reference for Account, Customer, Transaction, and Type — the four plain Java domain types, with constructor signatures, field tables, and getters/setters."
 ---
 
 The `domain` package is the foundation of the entire system. It contains four types — `Account`, `Customer`, `Transaction`, and the `Type` enum — that represent the core concepts of the bank. These are deliberately simple plain Java objects: each class declares a set of private fields, one all-args constructor, and a getter/setter pair for every field. There are no annotations, no framework dependencies, and no business logic inside the domain classes themselves. All rules about what values are valid or how objects relate to each other live in the service layer, leaving the domain layer stable and easy to extend.

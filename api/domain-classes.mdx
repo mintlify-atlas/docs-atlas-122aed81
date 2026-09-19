@@ -1,7 +1,7 @@
 ---
 title: "Domain Classes: Account, Customer, Transaction, and Type"
 sidebarTitle: "Domain Classes"
-description: "Reference for the four domain classes used throughout the Bank Management System: Account, Customer, Transaction, and the Type enum with its four transaction type values."
+description: "Reference for the four domain classes: Account, Customer, Transaction, and the Type enum. These POJOs carry data between the service and repository layers."
 ---
 
 The domain layer consists of four plain Java objects (POJOs) with no framework dependencies. They carry no business logic and impose no persistence requirements — they are pure data containers whose instances flow between the service layer and the repository layer. `Account` and `Customer` represent the entities created when a new account is opened; `Transaction` captures every financial event; and the `Type` enum classifies what kind of event each transaction represents.

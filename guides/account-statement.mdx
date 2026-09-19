@@ -1,7 +1,7 @@
 ---
 title: "View an Account Statement with Transaction History"
 sidebarTitle: "Account Statement"
-description: "Retrieve a chronologically ordered list of all transactions for any account. Each transaction shows a timestamp, type, amount, and the note provided at the time of the operation."
+description: "Retrieve all transactions for an account sorted by timestamp. Each entry shows the type, amount, and note. An unknown account number returns an empty list."
 ---
 
 The account statement gives you a complete, chronological record of every financial event associated with a specific account. Each entry in the statement corresponds to a `Transaction` object and displays the exact moment the operation occurred, the transaction type (`DEPOSIT`, `WITHDRAW`, `TRANSFER_IN`, or `TRANSFER_OUT`), the amount involved, and the descriptive note that was supplied when the operation was performed. Transactions are returned sorted by `timestamp` in ascending order — the earliest transaction appears first.
@@ -71,6 +71,10 @@ for (Transaction t : statement) {
 ## Sorting
 
 `getStatement()` sorts all matching transactions by their `timestamp` field in **ascending** order using `Comparator.comparing(Transaction::getTimestamp)`. The oldest transaction is always the first item returned; the most recent is last.
+
+## Unknown account numbers
+
+`getStatement()` queries the transaction repository directly by account number — it does **not** look up the account in the account repository first. If you pass an account number that does not exist, the method returns an **empty list** rather than throwing an `AccountNotFoundException`. Always verify that an account exists before relying on an empty result to mean "no transactions."
 
 <Note>
   The statement only includes transactions whose `accountNumber` field matches the account number you supply. For transfer operations, the sender's account holds a `TRANSFER_OUT` record and the receiver's account holds a separate `TRANSFER_IN` record — each account's statement reflects only its own side of the transfer.

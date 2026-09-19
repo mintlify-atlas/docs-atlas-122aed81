@@ -1,7 +1,7 @@
 ---
-title: "Repository Classes: AccountRepository, CustomerRepository, TransactionRepository"
+title: "Repository Classes: Account, Customer, and Transaction"
 sidebarTitle: "Repositories"
-description: "Reference for the three in-memory repository classes. Each wraps a HashMap and provides typed methods for storing and querying Accounts, Customers, and Transactions."
+description: "Reference for the three in-memory repository classes, each backed by a HashMap for storing and querying Account, Customer, and Transaction domain objects."
 ---
 
 The repository layer provides a data-access abstraction over plain in-memory `HashMap` stores. Each repository is responsible for exactly one domain type: `AccountRepository` manages `Account` objects, `CustomerRepository` manages `Customer` objects, and `TransactionRepository` manages `Transaction` objects grouped by account number. All three are instantiated directly as `new …()` inside `BankServiceImpl` and live for the duration of the JVM process — data does not survive application restart.

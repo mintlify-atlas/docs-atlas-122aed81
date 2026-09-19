@@ -1,7 +1,7 @@
 ---
-title: "Get Started with the Bank Management System"
+title: "Quickstart: Compile and Run the Bank Management System"
 sidebarTitle: "Quickstart"
-description: "Clone, compile, and run the Bank Management System in three steps. Open your first account, deposit funds, and view a transaction statement in under five minutes."
+description: "Get the Bank Management System running in minutes: compile from source with the JDK, open a bank account, deposit funds, and print a transaction statement."
 ---
 
 This guide walks you through everything needed to get the Bank Management System running on your machine. By the end you will have compiled the project from source, launched the console menu, opened a bank account for a new customer, deposited funds, and retrieved a formatted transaction statement — all without touching a database or installing any build tool beyond the JDK.
@@ -22,11 +22,11 @@ This guide walks you through everything needed to get the Bank Management System
   </Step>
 
   <Step title="Compile all sources">
-    Create the output directory, then use `find` to collect every `.java` file and pass it to `javac`:
+    Create the output directory, then compile every `.java` file under `src/` in one `javac` invocation:
 
     ```bash
     mkdir -p out
-    find src -name "*.java" | xargs javac -d out
+    find src -name "*.java" -exec javac -d out {} +
     ```
 
     All compiled `.class` files will be written to the `out/` directory, preserving the package hierarchy.
@@ -43,16 +43,16 @@ This guide walks you through everything needed to get the Bank Management System
   <Step title="Interact with the menu">
     After startup the console prints a welcome message followed by the main menu. Enter the number that corresponds to the operation you want to perform:
 
-    ```
+    ```text
     Welcome to Console Bank
-    1) Open Account
-    2) Deposit
-    3) Withdraw
-    4) Transfer
-    5) Account Statement
-    6) List Accounts
-    7) Search Accounts by Customer Name
-    0) Exit
+        1) Open Account
+        2) Deposit
+        3) Withdraw
+        4) Transfer
+        5) Account Statement
+        6) List Accounts
+        7) Search Accounts by Customer Name
+        0) Exit
     ```
 
     Type your choice and press **Enter**. The application loops back to this menu after each operation until you enter `0` to exit.
@@ -65,38 +65,38 @@ The walkthrough below shows a realistic sequence of interactions immediately aft
 
 ```text
 Welcome to Console Bank
-1) Open Account
-2) Deposit
-3) Withdraw
-4) Transfer
-5) Account Statement
-6) List Accounts
-7) Search Accounts by Customer Name
-0) Exit
+    1) Open Account
+    2) Deposit
+    3) Withdraw
+    4) Transfer
+    5) Account Statement
+    6) List Accounts
+    7) Search Accounts by Customer Name
+    0) Exit
 
 CHOOSE: > 1
 CHOICE: 1
-Customer name:
+Customer name: 
 > Alice Smith
-Customer email:
+Customer email: 
 > alice@example.com
-Account Type (SAVINGS/CURRENT):
+Account Type (SAVINGS/CURRENT): 
 > SAVINGS
-Initial deposit (optional, bank for 0):
+Initial deposit (optional, bank for 0): 
 > 1000
 Account opened: AC000001
 
 CHOOSE: > 2
 CHOICE: 2
-Account number:
+Account number: 
 > AC000001
-Amount:
+Amount: 
 > 500
 Deposited
 
 CHOOSE: > 5
 CHOICE: 5
-Account Number:
+Account Number: 
 > AC000001
 2024-06-01T10:15:32.104 | DEPOSIT | 1000.0 | Initial Deposit
 2024-06-01T10:16:44.821 | DEPOSIT | 500.0 | Deposit

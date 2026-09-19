@@ -1,14 +1,14 @@
 ---
-title: "Input Validation with the Functional Validation Interface"
+title: "Functional Input Validation in the Bank Management System"
 sidebarTitle: "Validation"
-description: "The Validation<T> functional interface enables composable, lambda-based input validators in BankServiceImpl. Each validator checks one condition and throws ValidationException on failure."
+description: "BankServiceImpl uses four Validation<T> lambdas to guard name, email, account type, and amount. Each throws ValidationException if its one check fails."
 ---
 
 The `Validation<T>` interface is a `@FunctionalInterface` with a single abstract method, `validate(T value)`, that throws `ValidationException` when the supplied value does not satisfy an expected condition. Because it is a functional interface, any conforming lambda expression can be assigned to a `Validation<T>` variable — no concrete class is required. `BankServiceImpl` uses this pattern to define four focused, single-responsibility validators as private instance fields, keeping input-checking logic inline and easy to read.
 
 ## The Validation Interface
 
-```java Validation.java
+```java
 package util;
 
 import exceptions.ValidationException;
@@ -51,10 +51,26 @@ private final Validation<Double> validateAmountPositive = amount -> {
 
 - **`validateName`** — called at the start of `openAccount()`. Rejects a name that is `null` or consists entirely of whitespace.
 - **`validateEmail`** — called at the start of `openAccount()`. Rejects an email that is `null` or does not contain the `@` character.
-- **`validateType`** — called at the start of `openAccount()`. Rejects an account type that is not `"SAVINGS"` or `"CURRENT"` (comparison is case-insensitive).
+- **`validateType`** — called at the start of `openAccount()`. See the warning below about its actual runtime behavior.
 - **`validateAmountPositive`** — called at the start of `deposit()`, `withdraw()`, and `transfer()`. Rejects a `null` amount or any value below zero.
 
 All four validators execute before any repository access, ensuring that malformed input never reaches the data layer.
+
+<Warning>
+  **`validateType` contains a logic error in the source code.** The condition as written is:
+
+  ```java
+  if (type == null || !(type.equalsIgnoreCase("SAVINGS") || !type.equalsIgnoreCase("WITHDRAW")))
+  ```
+
+  The second operand of the inner `||` is `!type.equalsIgnoreCase("WITHDRAW")`. This is `true` for any string that is not `"WITHDRAW"` — which includes `"SAVINGS"`, `"CURRENT"`, and virtually every other value. Because of short-circuit evaluation, the `||` is almost always `true`, making the whole condition `!(true)` = `false`, so the exception is **almost never thrown**. In practice, `validateType` only rejects `null` and the exact string `"WITHDRAW"` (case-insensitive). The intended behavior — rejecting everything except `"SAVINGS"` and `"CURRENT"` — is not what the code implements. A correct condition would be:
+
+  ```java
+  if (type == null || !(type.equalsIgnoreCase("SAVINGS") || type.equalsIgnoreCase("CURRENT")))
+  ```
+
+  The documentation above reflects what the source code **actually does**, not what was intended.
+</Warning>
 
 ---
 
@@ -78,12 +94,12 @@ The lambda must accept a single parameter of type `T` and either return normally
 
 ## Validation Summary
 
-| Validator | Input type | Passing condition | Exception message |
+| Validator | Input type | Condition that throws | Exception message |
 |---|---|---|---|
-| `validateName` | `String` | `name != null && !name.isBlank()` | `"Name is required."` |
-| `validateEmail` | `String` | `email != null && email.contains("@")` | `"Please enter correct email"` |
-| `validateType` | `String` | `SAVINGS` or `CURRENT` (case-insensitive) | `"Type must be SAVINGS or CURRENT"` |
-| `validateAmountPositive` | `Double` | `amount != null && amount >= 0` | `"Please enter a valid amount"` |
+| `validateName` | `String` | `name == null \|\| name.isBlank()` | `"Name is required."` |
+| `validateEmail` | `String` | `email == null \|\| !email.contains("@")` | `"Please enter correct email"` |
+| `validateType` | `String` | `type == null \|\| type.equalsIgnoreCase("WITHDRAW")` (effective behavior — see warning above) | `"Type must be SAVINGS or CURRENT"` |
+| `validateAmountPositive` | `Double` | `amount == null \|\| amount < 0` | `"Please enter a valid amount"` |
 
 <Tip>
   Because `Validation<T>` is a `@FunctionalInterface`, you can assign any lambda that accepts a `T` and throws `ValidationException`. This makes it straightforward to introduce new validators — such as phone number format, minimum deposit amount, or password strength — without modifying any existing class.
